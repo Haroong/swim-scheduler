@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  # MariaDB 데이터베이스
+  db:
+    image: mariadb:11.2
+    container_name: swim-scheduler-db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${DB_NAME:-swim_scheduler}
+      MYSQL_USER: ${DB_USER:-swimuser}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-swimpass}
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - swim-network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Parser 서비스 (크롤링 및 LLM 파싱)
+  parser:
+    build:
+      context: ./services/parser
+      dockerfile: Dockerfile
+    container_name: swim-scheduler-parser
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-swimuser}
+      DB_PASSWORD: ${DB_PASSWORD:-swimpass}
+      DB_NAME: ${DB_NAME:-swim_scheduler}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    volumes:
+      - ./services/parser:/app
+      - parser_data:/app/data
+    networks:
+      - swim-network
+    depends_on:
+      db:
+        condition: service_healthy
+    # 주기적으로 실행하려면 cron 설정 필요
+
+  # API 서비스 (FastAPI)
+  api:
+    build:
+      context: ./services
+      dockerfile: api/Dockerfile
+    container_name: swim-scheduler-api
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-swimuser}
+      DB_PASSWORD: ${DB_PASSWORD:-swimpass}
+      DB_NAME: ${DB_NAME:-swim_scheduler}
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+    ports:
+      - "${API_PORT:-8000}:8000"
+    networks:
+      - swim-network
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend 서비스 (React + Nginx)
+  frontend:
+    build:
+      context: ./services/frontend
+      dockerfile: Dockerfile
+    container_name: swim-scheduler-frontend
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    networks:
+      - swim-network
+    depends_on:
+      - api
+    environment:
+      VITE_API_BASE_URL: http://localhost:${API_PORT:-8000}
+
+networks:
+  swim-network:
+    driver: bridge
+
+volumes:
+  db_data:
+  parser_data:
