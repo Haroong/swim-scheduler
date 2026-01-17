@@ -64,7 +64,7 @@ class ListCrawler:
         logger.info(f"총 {len(all_posts)}개 게시글 수집 완료")
         return all_posts
 
-    def _crawl_page(self, keyword: str, page: int, search_field: str = "Ti") -> List[PostSummary]:
+    def _crawl_page(self, keyword: str, page: int, search_field: str = "ALL") -> List[PostSummary]:
         """단일 페이지 크롤링"""
         params = {
             "search_field": search_field,  # Ti: 제목, Co: 내용, ALL: 전체
@@ -131,12 +131,6 @@ class ListCrawler:
 
             # 상세 페이지 URL 생성
             detail_url = f"{BOARD_URL}?action=read&action-value={post_id}"
-
-            # 제외 키워드가 포함된 게시글 필터링
-            exclude_keywords = ['추첨', '상담', '방문']
-            if any(kw in title for kw in exclude_keywords):
-                logger.debug(f"제외 키워드 게시글: {title}")
-                continue
 
             post = PostSummary(
                 post_id=post_id,
