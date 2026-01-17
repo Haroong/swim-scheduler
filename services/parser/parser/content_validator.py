@@ -12,6 +12,7 @@ class ContentValidator:
     # 자유수영 관련 필수 키워드
     SWIM_KEYWORDS = [
         "자유수영",
+        "월 자유수영",  # 진도표에서 사용
         "일일발권",
         "일일이용",
         "평일",
@@ -23,7 +24,8 @@ class ContentValidator:
         "레인",
         "운영시간",
         "동절기",
-        "하절기"
+        "하절기",
+        "방문접수"  # 진도표에서 사용
     ]
 
     # 시간 패턴 (예: 08:00, 06:30~08:00)
@@ -51,14 +53,18 @@ class ContentValidator:
         if not text or len(text) < self.min_length:
             return False
 
+        # 자유수영 핵심 키워드 확인
+        has_core_keyword = ("자유수영" in text or "월 자유수영" in text or
+                           "일일발권" in text or "일일이용" in text)
+
         # 키워드 개수 확인
         keyword_count = sum(1 for kw in self.SWIM_KEYWORDS if kw in text)
 
         # 시간 패턴 확인
         has_time = bool(re.search(self.TIME_PATTERN, text))
 
-        # 키워드가 충분하고 시간 정보가 있으면 자유수영 정보로 판단
-        return keyword_count >= self.min_keywords and has_time
+        # 조건: (핵심 키워드 + 시간 정보) 또는 (키워드 3개 이상 + 시간 정보)
+        return (has_core_keyword and has_time) or (keyword_count >= self.min_keywords and has_time)
 
     def get_quality_score(self, text: str) -> int:
         """

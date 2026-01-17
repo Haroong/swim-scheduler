@@ -10,9 +10,9 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional
 
-from crawler.facility_info_crawler import FacilityInfoCrawler, FacilityInfo
-from crawler.list_crawler import ListCrawler
-from crawler.detail_crawler import DetailCrawler
+from crawler.snyouth.facility_info_crawler import FacilityInfoCrawler, FacilityInfo
+from crawler.snyouth.list_crawler import ListCrawler
+from crawler.snyouth.detail_crawler import DetailCrawler
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
