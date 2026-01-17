@@ -19,21 +19,24 @@ logger = logging.getLogger(__name__)
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
 
-# 환경변수에서 API 키 로드
+# 환경변수에서 API 키 및 모델 로드
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+LLM_MODEL = os.environ.get("LLM_MODEL", "claude-3-5-haiku-20241022")
 
 
 class LLMParser:
     """LLM 기반 자유수영 정보 파서"""
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         """
         초기화
 
         Args:
             api_key: Anthropic API 키 (없으면 환경변수에서 로드)
+            model: 사용할 LLM 모델 (없으면 환경변수에서 로드)
         """
         self.api_key = api_key or ANTHROPIC_API_KEY
+        self.model = model or LLM_MODEL
         self.client = None
         self._init_client()
 
@@ -46,7 +49,7 @@ class LLMParser:
         try:
             from anthropic import Anthropic
             self.client = Anthropic(api_key=self.api_key)
-            logger.info("Anthropic 클라이언트 초기화 완료")
+            logger.info(f"Anthropic 클라이언트 초기화 완료 (모델: {self.model})")
         except ImportError:
             logger.error("anthropic 패키지가 설치되지 않았습니다. pip install anthropic 실행 필요")
         except Exception as e:
@@ -84,7 +87,7 @@ class LLMParser:
 
         try:
             response = self.client.messages.create(
-                model="claude-3-haiku-20240307",
+                model=self.model,
                 max_tokens=2000,
                 messages=[
                     {"role": "user", "content": prompt}
