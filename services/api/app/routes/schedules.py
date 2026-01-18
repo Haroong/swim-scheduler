@@ -41,6 +41,35 @@ async def get_schedules(
     return schedules
 
 
+@router.get("/schedules/daily", response_model=List[dict])
+async def get_daily_schedules(
+    date: str = Query(..., description="날짜 (YYYY-MM-DD 형식, 예: 2026-01-18)")
+):
+    """
+    특정 날짜의 자유수영 스케줄 조회
+
+    Args:
+        date: 날짜 (YYYY-MM-DD)
+
+    Returns:
+        해당 날짜에 운영하는 모든 시설의 스케줄 목록
+
+    Example:
+        /api/schedules/daily?date=2026-01-18
+    """
+    # 날짜 형식 간단 검증
+    if len(date) != 10 or date.count('-') != 2:
+        raise HTTPException(status_code=400, detail="날짜 형식이 올바르지 않습니다. YYYY-MM-DD 형식을 사용하세요.")
+
+    schedules = ScheduleService.get_daily_schedules(date)
+
+    if not schedules:
+        # 빈 결과는 정상 응답 (해당 날짜에 운영하는 시설이 없을 수 있음)
+        return []
+
+    return schedules
+
+
 @router.get("/schedules/calendar")
 async def get_calendar_schedules(
     year: int = Query(..., description="년도 (예: 2026)"),
