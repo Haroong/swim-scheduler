@@ -23,11 +23,19 @@ from crawler.snyouth.detail_crawler import DetailCrawler as SnyouthDetailCrawler
 from crawler.snhdc.facility_info_crawler import FacilityInfoCrawler as SnhdcFacilityInfoCrawler
 from crawler.snhdc.list_crawler import ListCrawler as SnhdcListCrawler
 from crawler.snhdc.detail_crawler import DetailCrawler as SnhdcDetailCrawler
+from crawler.snhdc.attachment_downloader import AttachmentDownloader
+
+# 파서
+from parser.hwp_text_extractor import HwpTextExtractor
+from parser.pdf_text_extractor import PdfTextExtractor
+from parser.llm_parser import LLMParser
+from parser.content_validator import ContentValidator
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 STORAGE_DIR = Path(__file__).parent.parent / "storage"
+DOWNLOAD_DIR = Path(__file__).parent.parent / "downloads"
 
 
 class SwimCrawlerService:
@@ -43,6 +51,13 @@ class SwimCrawlerService:
         self.snhdc_facility_crawler = SnhdcFacilityInfoCrawler()
         self.snhdc_list_crawler = SnhdcListCrawler()
         self.snhdc_detail_crawler = SnhdcDetailCrawler
+        self.snhdc_downloader = AttachmentDownloader(download_dir=DOWNLOAD_DIR / "snhdc")
+
+        # 파서
+        self.hwp_extractor = HwpTextExtractor()
+        self.pdf_extractor = PdfTextExtractor()
+        self.llm_parser = LLMParser()
+        self.validator = ContentValidator()
 
     def crawl_base_schedules(self, save: bool = True) -> Dict[str, List[Dict]]:
         """
@@ -165,6 +180,158 @@ class SwimCrawlerService:
         total = len(all_notices["snyouth"]) + len(all_notices["snhdc"])
         logger.info(f"월별 공지사항 크롤링 완료: 총 {total}개")
         return all_notices
+
+    def parse_snhdc_attachments(self, monthly_notices: Optional[Dict[str, List[Dict]]] = None,
+                                 save: bool = True, max_files: int = 10) -> List[Dict]:
+        """
+        SNHDC 첨부파일 다운로드 및 파싱
+
+        Args:
+            monthly_notices: 월별 공지사항 (없으면 파일에서 로드)
+            save: 파싱 결과 저장 여부
+            max_files: 최대 처리 파일 수
+
+        Returns:
+            파싱된 결과 리스트
+        """
+        logger.info("=== SNHDC 첨부파일 파싱 시작 ===")
+
+        # 데이터 로드
+        if monthly_notices is None:
+            monthly_notices = self._load_monthly_notices()
+
+        snhdc_notices = monthly_notices.get("snhdc", [])
+
+        # 첨부파일이 있는 공지만 필터링
+        notices_with_files = [n for n in snhdc_notices if n.get("has_attachment")]
+        logger.info(f"첨부파일이 있는 공지: {len(notices_with_files)}개")
+
+        if not notices_with_files:
+            logger.warning("첨부파일이 있는 공지가 없습니다.")
+            return []
+
+        # 최대 개수 제한
+        notices_to_process = notices_with_files[:max_files]
+        logger.info(f"처리할 공지: {len(notices_to_process)}개")
+
+        # 1. 첨부파일 다운로드
+        logger.info("첨부파일 다운로드 중...")
+        downloaded_files_info = []
+
+        for notice in notices_to_process:
+            # PostDetail 재구성
+            from dataclasses import dataclass
+            from typing import Optional as Opt
+
+            @dataclass
+            class PostDetailForDownload:
+                post_id: str
+                title: str
+                facility_name: str
+                date: str
+                content_html: str
+                content_text: str
+                file_hwp: Opt[str] = None
+                file_pdf: Opt[str] = None
+                has_attachment: bool = False
+
+            post_detail = PostDetailForDownload(
+                post_id=notice["post_id"],
+                title=notice["title"],
+                facility_name=notice["facility_name"],
+                date=notice["date"],
+                content_html=notice.get("content_html", ""),
+                content_text=notice.get("content_text", ""),
+                file_hwp=notice.get("file_hwp"),
+                file_pdf=notice.get("file_pdf"),
+                has_attachment=notice["has_attachment"]
+            )
+
+            # 다운로드
+            downloaded = self.snhdc_downloader.download_from_post_detail(post_detail)
+            for file_path in downloaded:
+                file_ext = file_path.suffix.lower()
+                if file_ext in [".hwp", ".pdf"]:
+                    downloaded_files_info.append((notice, file_path, file_ext))
+
+        logger.info(f"다운로드 완료: {len(downloaded_files_info)}개 파일")
+
+        # 2. 텍스트 추출
+        logger.info("텍스트 추출 중...")
+        extracted_texts = []
+
+        for notice, file_path, file_ext in downloaded_files_info:
+            try:
+                if file_ext == ".hwp":
+                    text = self.hwp_extractor.extract_text(file_path)
+                elif file_ext == ".pdf":
+                    text = self.pdf_extractor.extract_text(file_path)
+                else:
+                    continue
+
+                if text and len(text) > 50:
+                    extracted_texts.append((notice, text, file_path))
+                    logger.info(f"텍스트 추출 성공: {file_path.name} ({len(text)}자)")
+            except Exception as e:
+                logger.warning(f"텍스트 추출 실패: {file_path.name} - {e}")
+
+        logger.info(f"텍스트 추출 완료: {len(extracted_texts)}개")
+
+        # 3. 콘텐츠 검증
+        logger.info("콘텐츠 검증 중...")
+        validated_texts = []
+
+        for notice, text, file_path in extracted_texts:
+            is_valid = self.validator.contains_swim_info(text)
+            if is_valid:
+                validated_texts.append((notice, text, file_path))
+                logger.info(f"검증 통과: {file_path.name}")
+
+        logger.info(f"검증 통과: {len(validated_texts)}개")
+
+        # 4. LLM 파싱
+        logger.info("LLM 파싱 중...")
+        parsed_results = []
+
+        for notice, text, file_path in validated_texts:
+            result = self.llm_parser.parse(
+                raw_text=text,
+                facility_name=notice["facility_name"],
+                notice_date=notice["date"],
+                source_url=f"https://spo.isdc.co.kr (첨부파일: {file_path.name})"
+            )
+
+            if result:
+                result["source_file"] = file_path.name
+                result["source_notice_title"] = notice["title"]
+                result["source_notice_date"] = notice["date"]
+                parsed_results.append(result)
+                logger.info(f"파싱 성공: {file_path.name}")
+
+        logger.info(f"LLM 파싱 완료: {len(parsed_results)}개")
+
+        # 5. 결과 저장
+        if save and parsed_results:
+            self._save_parsed_attachments(parsed_results)
+
+        return parsed_results
+
+    def _save_parsed_attachments(self, data: List[Dict]):
+        """파싱된 첨부파일 데이터 저장"""
+        output = {
+            "meta": {
+                "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "source": "SNHDC attachments (HWP/PDF)",
+                "parsed_count": len(data)
+            },
+            "parsed_schedules": data
+        }
+
+        file_path = STORAGE_DIR / "snhdc_parsed_attachments.json"
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(output, f, ensure_ascii=False, indent=2)
+
+        logger.info(f"파싱 결과 저장 완료: {file_path}")
 
     def merge_schedules(self, base_schedules: Optional[Dict[str, List[Dict]]] = None,
                        monthly_notices: Optional[Dict[str, List[Dict]]] = None) -> Dict:
@@ -409,9 +576,20 @@ if __name__ == "__main__":
     print(f"  성남도시개발공사: {snhdc_notice_count}개")
     print(f"  총 {snyouth_notice_count + snhdc_notice_count}개 공지")
 
-    # 3. 데이터 병합
+    # 3. SNHDC 첨부파일 파싱
     print("\n" + "="*60)
-    print("3. 스케줄 병합")
+    print("3. SNHDC 첨부파일 다운로드 및 파싱")
+    print("="*60)
+    parsed_attachments = service.parse_snhdc_attachments(monthly_notices, save=True, max_files=5)
+    print(f"  파싱 완료: {len(parsed_attachments)}개")
+    for result in parsed_attachments[:3]:  # 처음 3개만
+        print(f"    - [{result['facility_name']}] {result.get('valid_month', 'N/A')}")
+        print(f"      파일: {result['source_file']}")
+        print(f"      스케줄: {len(result.get('schedules', []))}개")
+
+    # 4. 데이터 병합
+    print("\n" + "="*60)
+    print("4. 스케줄 병합")
     print("="*60)
     merged = service.merge_schedules(base_schedules, monthly_notices)
     print(f"병합 완료: {len(merged['facilities'])}개 시설")
