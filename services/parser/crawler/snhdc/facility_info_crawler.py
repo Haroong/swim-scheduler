@@ -87,30 +87,42 @@ class FacilityInfoCrawler:
         return self._parse_facility_page(facility_name, url, response.text)
 
     def _parse_facility_page(self, facility_name: str, url: str, html: str) -> Optional[FacilityInfo]:
-        """일일자유이용 안내 페이지 파싱"""
+        """일일자유이용 안내 페이지 파싱 (다양한 HTML 구조 지원)"""
         soup = BeautifulSoup(html, "html.parser")
 
-        # tabs-2 섹션 찾기 (일일자유이용안내)
-        tabs2 = soup.find('div', id='tabs-2')
-        if not tabs2:
-            logger.warning(f"{facility_name}: tabs-2 섹션을 찾을 수 없습니다")
-            return None
+        # 1. tabs-2 섹션 찾기 (없을 수도 있음 - 판교스포츠센터)
+        search_section = soup.find('div', id='tabs-2')
+        if not search_section:
+            logger.info(f"{facility_name}: tabs-2 없음, 전체 페이지에서 검색")
+            search_section = soup
 
-        # 수영 섹션 찾기
-        h5_swimming = tabs2.find('h5', string='수영')
+        # 2. 수영 섹션 찾기 (다양한 패턴 지원)
+        h5_swimming = None
+        swimming_patterns = [
+            '수영',                  # 탄천, 성남
+            '수영 일일자유이용',      # 황새울
+            '일일자유 수영',          # 판교, 평생
+        ]
+
+        for pattern in swimming_patterns:
+            h5_swimming = search_section.find('h5', string=lambda text: text and pattern in text)
+            if h5_swimming:
+                logger.info(f"{facility_name}: 수영 섹션 발견 (패턴: {pattern})")
+                break
+
         if not h5_swimming:
             logger.warning(f"{facility_name}: 수영 섹션을 찾을 수 없습니다")
             return None
 
-        # 테이블 찾기
+        # 3. 테이블 찾기
         table = h5_swimming.find_next('table')
         if not table:
             logger.warning(f"{facility_name}: 테이블을 찾을 수 없습니다")
             return None
 
-        # 데이터 파싱
+        # 4. 데이터 파싱
         weekday_schedule, weekend_schedule, fees = self._parse_schedule_table(table)
-        notes = self._parse_notes(tabs2)
+        notes = self._parse_notes(search_section)
 
         from datetime import datetime
         last_updated = datetime.now().strftime("%Y-%m-%d")
@@ -173,8 +185,8 @@ class FacilityInfoCrawler:
             # 정원 파싱 (예: "200명", "25M 120명")
             capacity = self._extract_capacity(capacity_text)
 
-            # 요일 분류
-            if '월~금' in day_text or '월-금' in day_text:
+            # 요일 분류 (다양한 패턴 지원)
+            if '월~금' in day_text or '월-금' in day_text or '월,화,목,금' in day_text:
                 # 평일
                 schedule_item = {
                     "start_time": start_time,
@@ -185,8 +197,8 @@ class FacilityInfoCrawler:
                 }
                 weekday_schedule.append(schedule_item)
 
-            elif '토요일' in day_text or '토' == day_text:
-                # 토요일
+            elif '토' in day_text and '일' not in day_text and '공휴일' not in day_text:
+                # 토요일만 (토ㆍ일, 토요일, 토 등)
                 if "sessions" not in weekend_schedule["saturday"]:
                     weekend_schedule["saturday"]["sessions"] = []
                 weekend_schedule["saturday"]["sessions"].append({
@@ -196,8 +208,8 @@ class FacilityInfoCrawler:
                     "notes": day_text
                 })
 
-            elif '일요일' in day_text or '일' == day_text or '공휴일' in day_text:
-                # 일요일/공휴일
+            elif '일' in day_text or '공휴일' in day_text:
+                # 일요일/공휴일 또는 "토ㆍ일" 패턴
                 if "sessions" not in weekend_schedule["sunday"]:
                     weekend_schedule["sunday"]["sessions"] = []
                 weekend_schedule["sunday"]["sessions"].append({
