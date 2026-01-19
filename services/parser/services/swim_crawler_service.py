@@ -121,12 +121,13 @@ class SwimCrawlerService:
             "file_pdf": next((att.filename for att in detail.attachments if att.file_ext == "pdf"), None)
         }
 
-    def parse_snhdc_attachments(self, monthly_notices: Optional[Dict[str, List[Dict]]] = None,
-                                 save: bool = True, max_files: int = 10) -> List[Dict]:
+    def parse_attachments(self, org_key: str, monthly_notices: Optional[Dict[str, List[Dict]]] = None,
+                          save: bool = True, max_files: int = 10) -> List[Dict]:
         """
-        SNHDC 첨부파일 다운로드 및 파싱
+        기관별 첨부파일 다운로드 및 파싱 (snhdc, snyouth 모두 지원)
 
         Args:
+            org_key: 기관 키 ("snhdc" 또는 "snyouth")
             monthly_notices: 월별 공지사항 (없으면 파일에서 로드)
             save: 파싱 결과 저장 여부
             max_files: 최대 처리 파일 수
@@ -134,28 +135,29 @@ class SwimCrawlerService:
         Returns:
             파싱된 결과 리스트
         """
-        logger.info("=== SNHDC 첨부파일 파싱 시작 ===")
+        org_name = "SNHDC" if org_key == "snhdc" else "SNYOUTH"
+        logger.info(f"=== {org_name} 첨부파일 파싱 시작 ===")
 
         # 데이터 로드
         if monthly_notices is None:
-            snhdc_notices = self.storage.load_monthly_notices("snhdc")
+            notices = self.storage.load_monthly_notices(org_key)
         else:
-            snhdc_notices = monthly_notices.get("snhdc", [])
+            notices = monthly_notices.get(org_key, [])
 
         # 첨부파일이 있는 공지만 필터링
-        notices_with_files = [n for n in snhdc_notices if n.get("has_attachment")]
+        notices_with_files = [n for n in notices if n.get("has_attachment")]
         logger.info(f"첨부파일이 있는 공지: {len(notices_with_files)}개")
 
         if not notices_with_files:
-            logger.warning("첨부파일이 있는 공지가 없습니다.")
+            logger.warning(f"{org_name}: 첨부파일이 있는 공지가 없습니다.")
             return []
 
         # 최대 개수 제한
         notices_to_process = notices_with_files[:max_files]
         logger.info(f"처리할 공지: {len(notices_to_process)}개")
 
-        # ParsingService 사용
-        parsing_service = ParsingService(download_dir=DOWNLOAD_DIR / "snhdc")
+        # ParsingService 사용 (기관별 다운로더 선택)
+        parsing_service = ParsingService(download_dir=DOWNLOAD_DIR / org_key, org_key=org_key)
 
         # Dict를 PostDetail로 변환 후 파싱
         parsed_results = []
@@ -168,13 +170,28 @@ class SwimCrawlerService:
             if result:
                 parsed_results.append(result)
 
-        logger.info(f"파싱 완료: {len(parsed_results)}/{len(notices_to_process)}개 성공")
+        logger.info(f"{org_name} 파싱 완료: {len(parsed_results)}/{len(notices_to_process)}개 성공")
 
         # 결과 저장
         if save and parsed_results:
-            self.storage.save_parsed_schedules("snhdc", parsed_results)
+            self.storage.save_parsed_schedules(org_key, parsed_results)
 
         return parsed_results
+
+    def parse_snhdc_attachments(self, monthly_notices: Optional[Dict[str, List[Dict]]] = None,
+                                 save: bool = True, max_files: int = 10) -> List[Dict]:
+        """
+        SNHDC 첨부파일 다운로드 및 파싱 (하위 호환성 유지)
+
+        Args:
+            monthly_notices: 월별 공지사항 (없으면 파일에서 로드)
+            save: 파싱 결과 저장 여부
+            max_files: 최대 처리 파일 수
+
+        Returns:
+            파싱된 결과 리스트
+        """
+        return self.parse_attachments("snhdc", monthly_notices, save, max_files)
 
     @staticmethod
     def _dict_to_post_detail(notice_dict: Dict) -> PostDetail:

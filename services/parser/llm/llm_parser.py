@@ -42,7 +42,11 @@ class LLMParser:
 
         try:
             from anthropic import Anthropic
-            self.client = Anthropic(api_key=self.api_key)
+            # JetBrains 프록시 대신 Anthropic API 직접 사용
+            self.client = Anthropic(
+                api_key=self.api_key,
+                base_url="https://api.anthropic.com"
+            )
             logger.info(f"Anthropic 클라이언트 초기화 완료 (모델: {self.model})")
         except ImportError:
             logger.error("anthropic 패키지가 설치되지 않았습니다. pip install anthropic 실행 필요")

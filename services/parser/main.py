@@ -56,14 +56,19 @@ def parse(monthly_notices=None, max_files: int = 10):
 
     service = SwimCrawlerService()
 
-    # SNHDC 첨부파일 파싱
-    parsed_results = service.parse_snhdc_attachments(
-        monthly_notices=monthly_notices,
-        save=True,
-        max_files=max_files
-    )
+    # 양쪽 기관 모두 처리
+    parsed_results = []
+    for org_key in ["snhdc", "snyouth"]:
+        org_results = service.parse_attachments(
+            org_key=org_key,
+            monthly_notices=monthly_notices,
+            save=True,
+            max_files=max_files
+        )
+        parsed_results.extend(org_results)
+        logger.info(f"{org_key.upper()} 파싱 완료: {len(org_results)}개")
 
-    logger.info(f"파싱 완료: {len(parsed_results)}개")
+    logger.info(f"전체 파싱 완료: {len(parsed_results)}개")
 
     # valid_month 검증
     validated_results = []

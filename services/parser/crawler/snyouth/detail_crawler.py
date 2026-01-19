@@ -30,12 +30,13 @@ class DetailCrawler(BaseDetailCrawler):
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         })
 
-    def get_detail(self, post_url: str, **kwargs) -> Optional[PostDetail]:
+    def get_detail(self, post_url: str, facility_name: str = "", **kwargs) -> Optional[PostDetail]:
         """
         상세 페이지에서 정보 추출
 
         Args:
             post_url: 상세 페이지 URL
+            facility_name: 시설명 (리스트 크롤링 시 수집)
             **kwargs: 추가 파라미터
 
         Returns:
@@ -48,9 +49,9 @@ class DetailCrawler(BaseDetailCrawler):
             self.logger.error(f"상세 페이지 요청 실패: {e}")
             return None
 
-        return self._parse_detail_page(response.text, post_url)
+        return self._parse_detail_page(response.text, post_url, facility_name)
 
-    def _parse_detail_page(self, html: str, source_url: str) -> Optional[PostDetail]:
+    def _parse_detail_page(self, html: str, source_url: str, facility_name: str = "") -> Optional[PostDetail]:
         """상세 페이지 HTML 파싱"""
         soup = BeautifulSoup(html, "html.parser")
 
@@ -74,15 +75,14 @@ class DetailCrawler(BaseDetailCrawler):
         # 첨부파일 추출
         attachments = self._extract_attachments(soup)
 
-        # 시설명 추출 (제목에서 추출 시도)
-        facility_name = ""
-        # 기본값으로 "성남시청소년청년재단" 사용
-        if "야탑" in title:
-            facility_name = "야탑유스센터"
-        elif "중원" in title:
-            facility_name = "중원유스센터"
-        elif "판교" in title:
-            facility_name = "판교유스센터"
+        # 시설명: 파라미터로 받은 값 우선, 없으면 제목에서 추출 시도
+        if not facility_name:
+            if "야탑" in title:
+                facility_name = "야탑유스센터"
+            elif "중원" in title:
+                facility_name = "중원유스센터"
+            elif "판교" in title:
+                facility_name = "판교유스센터"
 
         # PostDetail 객체 생성 (dto 구조에 맞춰)
         content_html = str(soup.find("div", class_="view")) if soup.find("div", class_="view") else ""

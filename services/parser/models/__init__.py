@@ -1,6 +1,6 @@
 from .swim_program import SwimProgram
 from .parsed_swim_data import ParsedSwimData, SwimSession, DaySchedule, FeeInfo
-from services.parser.models.enum.facility import Facility, Organization, FacilityInfo
+from .enum.facility import Facility, Organization, FacilityInfo
 
 __all__ = [
     "SwimProgram",

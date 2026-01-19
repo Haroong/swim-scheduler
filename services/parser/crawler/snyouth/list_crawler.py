@@ -86,8 +86,10 @@ class ListCrawler(BaseListCrawler):
             if not post_id:
                 continue
 
-            # 시설명 (두 번째 컬럼)
-            facility_name = cols[1].get_text(strip=True)
+            # 시설명 (두 번째 컬럼에서 <strong class="loc ..."> 태그 찾기)
+            facility_col = cols[1]
+            facility_tag = facility_col.find("strong", class_=lambda x: x and "loc" in x)
+            facility_name = facility_tag.get_text(strip=True) if facility_tag else ""
 
             # 첨부파일 여부 (네 번째 컬럼)
             attach_col = cols[3]

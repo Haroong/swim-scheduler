@@ -7,7 +7,8 @@
 import logging
 from pathlib import Path
 from typing import List, Optional, Dict
-from crawler.snhdc.attachment_downloader import AttachmentDownloader
+from crawler.snhdc.attachment_downloader import AttachmentDownloader as SnhdcAttachmentDownloader
+from crawler.snyouth.attachment_downloader import AttachmentDownloader as SnyouthAttachmentDownloader
 from extractors.hwp_text_extractor import HwpTextExtractor
 from extractors.pdf_text_extractor import PdfTextExtractor
 from extractors.content_validator import ContentValidator
@@ -20,13 +21,21 @@ logger = logging.getLogger(__name__)
 class ParsingService:
     """파싱 실행 서비스"""
 
-    def __init__(self, download_dir: Path):
+    def __init__(self, download_dir: Path, org_key: str = "snhdc"):
         """
         Args:
             download_dir: 파일 다운로드 디렉토리
+            org_key: 기관 키 ("snhdc" 또는 "snyouth")
         """
         self.download_dir = download_dir
-        self.downloader = AttachmentDownloader(download_dir=download_dir)
+        self.org_key = org_key
+
+        # 기관별 다운로더 선택
+        if org_key == "snyouth":
+            self.downloader = SnyouthAttachmentDownloader(download_dir=download_dir)
+        else:
+            self.downloader = SnhdcAttachmentDownloader(download_dir=download_dir)
+
         self.hwp_extractor = HwpTextExtractor()
         self.pdf_extractor = PdfTextExtractor()
         self.validator = ContentValidator()
@@ -87,6 +96,11 @@ class ParsingService:
         )
 
         if result:
+            # LLM이 시설명을 추출하지 못한 경우, 크롤링 시 수집한 시설명 사용
+            if not result.get("facility_name") and notice.facility_name:
+                result["facility_name"] = notice.facility_name
+                logger.info(f"크롤링 시설명 사용: {notice.facility_name}")
+
             # 추가 메타데이터 포함
             result["source_file"] = file_path.name if file_path else None
             result["source_notice_title"] = notice.title
