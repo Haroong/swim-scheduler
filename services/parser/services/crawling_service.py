@@ -51,14 +51,21 @@ class CrawlingService:
         """
         logger.info(f"[{self.org_key}] 월별 공지사항 크롤링 시작...")
 
+        # snhdc: API가 목록에서 이미 content를 제공하므로 직접 상세 정보 수집
+        if self.org_key == "snhdc":
+            details = self.list_crawler.get_posts_with_details(keyword, max_pages)
+            logger.info(f"[{self.org_key}] 상세 정보 수집 완료: {len(details)}개")
+            return details
+
+        # snyouth: 목록 → 상세 순서로 크롤링
         # 1. 목록 수집
         posts: List[PostSummary] = self.list_crawler.get_posts(keyword, max_pages)
         logger.info(f"[{self.org_key}] 게시글 목록: {len(posts)}개")
 
-        # 2. 상세 정보 수집
+        # 2. 상세 정보 수집 (시설명 전달)
         details = []
         for post in posts:
-            detail = self.detail_crawler.get_detail(post.detail_url)
+            detail = self.detail_crawler.get_detail(post.detail_url, facility_name=post.facility_name)
             if detail:
                 details.append(detail)
 
