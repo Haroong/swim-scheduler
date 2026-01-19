@@ -92,7 +92,7 @@ function ScheduleCalendar() {
             <div className="no-data">스케줄 데이터가 없습니다.</div>
           ) : (
             schedules.map((schedule) => (
-              <div key={schedule.id} className="schedule-card">
+              <div key={schedule.facility_id} className="schedule-card">
                 <div className="schedule-header">
                   <h2>{schedule.facility_name}</h2>
                   <span className="valid-month">{schedule.valid_month}</span>
@@ -131,7 +131,7 @@ function ScheduleCalendar() {
                     </div>
                   ))}
 
-                  {schedule.fees.length > 0 && (
+                  {schedule.fees && schedule.fees.length > 0 && (
                     <div className="fees">
                       <h3>이용료</h3>
                       {schedule.fees.map((fee, idx) => (
@@ -144,7 +144,7 @@ function ScheduleCalendar() {
                     </div>
                   )}
 
-                  {schedule.notes.length > 0 && (
+                  {schedule.notes && schedule.notes.length > 0 && (
                     <div className="notes">
                       <h3>유의사항</h3>
                       <ul>

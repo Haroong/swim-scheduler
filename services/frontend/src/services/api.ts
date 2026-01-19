@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Facility, Schedule, CalendarData } from '../types/schedule';
+import type { Facility, Schedule, CalendarData, DailySchedule } from '../types/schedule';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -27,6 +27,14 @@ export const scheduleApi = {
     if (month) params.month = month;
 
     const response = await api.get<Schedule[]>('/api/schedules', { params });
+    return response.data;
+  },
+
+  // 일별 스케줄 조회
+  getDailySchedules: async (date: string): Promise<DailySchedule[]> => {
+    const response = await api.get<DailySchedule[]>('/api/schedules/daily', {
+      params: { date },
+    });
     return response.data;
   },
 

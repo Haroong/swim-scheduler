@@ -20,20 +20,32 @@ export interface Fee {
 }
 
 export interface Schedule {
-  id: number;
+  facility_id: number;
   facility_name: string;
   valid_month: string;
   schedules: ScheduleDetail[];
-  fees: Fee[];
-  notes: string[];
+  fees?: Fee[];
+  notes?: string[];
   source_url?: string;
-  created_at: string;
+  created_at?: string;
 }
 
 export interface Facility {
   facility_name: string;
   latest_month: string;
   schedule_count: number;
+}
+
+export interface DailySchedule {
+  facility_id: number;
+  facility_name: string;
+  date: string;
+  day_type: string;
+  season: string;
+  valid_month: string;
+  sessions: Session[];
+  source_url?: string;
+  notes?: string;
 }
 
 export interface CalendarData {
