@@ -9,83 +9,60 @@ from dataclasses import dataclass
 import logging
 import re
 
-from models.facility import Facility, Organization, get_snyouth_facility_url
+from models.enum.facility import Facility, Organization, get_snyouth_facility_url
+from crawler.base.facility_crawler import BaseFacilityCrawler
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class FacilityInfo:
-    """시설 기본 정보"""
-    facility_name: str
-    facility_url: str
-    weekday_schedule: List[Dict]
-    weekend_schedule: Dict
-    fees: Dict
-    notes: List[str]
-    last_updated: str
+class FacilityInfoCrawler(BaseFacilityCrawler):
+    """
+    성남시청소년청년재단 시설 이용안내 페이지 크롤러
 
-
-class FacilityInfoCrawler:
-    """시설 이용안내 페이지 크롤러"""
+    각 유스센터의 이용안내 페이지에서 기본 정보 수집
+    """
 
     def __init__(self):
+        super().__init__()
         self.session = requests.Session()
         self.session.headers.update({
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         })
 
-    def crawl_all_facilities(self) -> List[FacilityInfo]:
-        """
-        모든 시설의 이용안내 정보 크롤링
+    def get_target_facilities(self) -> List[Facility]:
+        """크롤링 대상 시설 목록 (SNYOUTH 시설)"""
+        return Facility.snyouth_facilities()
 
-        Returns:
-            FacilityInfo 객체 리스트
-        """
-        results = []
-
-        for facility in Facility.snyouth_facilities():
-            url = get_snyouth_facility_url(facility)
-            logger.info(f"{facility.name} 이용안내 크롤링 중...")
-            info = self.crawl_facility(facility.name, url)
-            if info:
-                results.append(info)
-                logger.info(f"✓ {facility.name} 크롤링 완료")
-            else:
-                logger.warning(f"✗ {facility.name} 크롤링 실패")
-
-        return results
-
-    def crawl_facility(self, facility_name: str, url: str) -> Optional[FacilityInfo]:
+    def crawl_facility(self, facility: Facility) -> dict:
         """
         단일 시설의 이용안내 크롤링
 
         Args:
-            facility_name: 시설명
-            url: 이용안내 페이지 URL
+            facility: Facility Enum 객체
 
         Returns:
-            FacilityInfo 객체 또는 None
+            시설 정보 딕셔너리
         """
+        url = get_snyouth_facility_url(facility)
+
         try:
             response = self.session.get(url, timeout=10)
             response.raise_for_status()
         except requests.RequestException as e:
-            logger.error(f"페이지 요청 실패: {e}")
-            return None
+            self.logger.error(f"페이지 요청 실패: {e}")
+            return {}
 
-        return self._parse_facility_page(facility_name, url, response.text)
+        return self._parse_facility_page(facility.name, url, response.text)
 
-    def _parse_facility_page(self, facility_name: str, url: str, html: str) -> Optional[FacilityInfo]:
+    def _parse_facility_page(self, facility_name: str, url: str, html: str) -> dict:
         """이용안내 페이지 파싱"""
         soup = BeautifulSoup(html, "html.parser")
 
         # 본문 콘텐츠 찾기
         contents = soup.find('div', class_='contents')
         if not contents:
-            logger.error("콘텐츠 영역을 찾을 수 없습니다")
-            return None
+            self.logger.error("콘텐츠 영역을 찾을 수 없습니다")
+            return {}
 
         text = contents.get_text()
 
@@ -98,15 +75,15 @@ class FacilityInfoCrawler:
         from datetime import datetime
         last_updated = datetime.now().strftime("%Y-%m-%d")
 
-        return FacilityInfo(
-            facility_name=facility_name,
-            facility_url=url,
-            weekday_schedule=weekday_schedule,
-            weekend_schedule=weekend_schedule,
-            fees=fees,
-            notes=notes,
-            last_updated=last_updated
-        )
+        return {
+            "facility_name": facility_name,
+            "facility_url": url,
+            "weekday_schedule": weekday_schedule,
+            "weekend_schedule": weekend_schedule,
+            "fees": fees,
+            "notes": notes,
+            "last_updated": last_updated
+        }
 
     def _parse_weekday_schedule(self, text: str) -> List[Dict]:
         """평일 스케줄 파싱"""
@@ -255,18 +232,6 @@ class FacilityInfoCrawler:
 
         return notes[:10]  # 최대 10개
 
-    def to_dict(self, facility_info: FacilityInfo) -> Dict:
-        """FacilityInfo를 딕셔너리로 변환"""
-        return {
-            "facility_name": facility_info.facility_name,
-            "facility_url": facility_info.facility_url,
-            "weekday_schedule": facility_info.weekday_schedule,
-            "weekend_schedule": facility_info.weekend_schedule,
-            "fees": facility_info.fees,
-            "notes": facility_info.notes,
-            "last_updated": facility_info.last_updated
-        }
-
 
 # 테스트용 코드
 if __name__ == "__main__":
@@ -276,7 +241,6 @@ if __name__ == "__main__":
     import json
     for facility in facilities:
         print(f"\n{'='*60}")
-        print(f"{facility.facility_name}")
+        print(f"{facility['facility_name']}")
         print(f"{'='*60}")
-        data = crawler.to_dict(facility)
-        print(json.dumps(data, ensure_ascii=False, indent=2))
+        print(json.dumps(facility, ensure_ascii=False, indent=2))

@@ -4,30 +4,41 @@ list_crawler에서 가져온 데이터를 PostDetail로 변환
 (SNHDC API는 list에서 이미 content를 제공하므로 별도 detail API 불필요)
 """
 from typing import Optional, Dict
-from dataclasses import dataclass
 import logging
-from bs4 import BeautifulSoup
 
-logging.basicConfig(level=logging.INFO)
+from crawler.base.detail_crawler import BaseDetailCrawler
+from dto.crawler_dto import PostDetail, Attachment
+
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class PostDetail:
-    """게시글 상세 정보"""
-    post_id: str
-    title: str
-    facility_name: str
-    date: str
-    content_html: str
-    content_text: str      # HTML 태그 제거한 텍스트
-    file_hwp: Optional[str] = None  # HWP 파일명
-    file_pdf: Optional[str] = None  # PDF 파일명
-    has_attachment: bool = False
+class DetailCrawler(BaseDetailCrawler):
+    """
+    성남도시개발공사 공지사항 상세 크롤러
 
+    특징: SNHDC API는 list에서 이미 content를 제공하므로
+          별도 detail 페이지 크롤링 불필요
+    """
 
-class DetailCrawler:
-    """공지사항 상세 페이지 크롤러 (list API 데이터 변환용)"""
+    def get_detail(self, post_url: str, **kwargs) -> Optional[PostDetail]:
+        """
+        게시글 상세 정보 가져오기
+
+        SNHDC는 list_item을 kwargs로 받아서 변환
+
+        Args:
+            post_url: 사용 안 함 (호환성 유지용)
+            **kwargs: list_item (Dict) - API 응답 데이터
+
+        Returns:
+            PostDetail 객체
+        """
+        list_item = kwargs.get("list_item")
+        if not list_item:
+            self.logger.error("list_item이 필요합니다")
+            return None
+
+        return self.from_list_item(list_item)
 
     @staticmethod
     def from_list_item(list_item: Dict) -> Optional[PostDetail]:
@@ -53,9 +64,30 @@ class DetailCrawler:
             file_b = list_item.get("file_b", "").strip()  # PDF
 
             # HTML에서 텍스트 추출
-            content_text = DetailCrawler._extract_text_from_html(content_html)
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(content_html, "html.parser")
+            for tag in soup(["script", "style"]):
+                tag.decompose()
+            text = soup.get_text(separator="\n", strip=True)
+            lines = [line.strip() for line in text.split("\n") if line.strip()]
+            content_text = "\n".join(lines)
 
-            has_attachment = bool(file_a or file_b)
+            # 첨부파일 정보 생성
+            attachments = []
+            if file_a:
+                attachments.append(Attachment(
+                    filename=file_a,
+                    file_size="",
+                    file_ext="hwp",
+                    download_url=""
+                ))
+            if file_b:
+                attachments.append(Attachment(
+                    filename=file_b,
+                    file_size="",
+                    file_ext="pdf",
+                    download_url=""
+                ))
 
             post_detail = PostDetail(
                 post_id=post_id,
@@ -64,41 +96,16 @@ class DetailCrawler:
                 date=enter_dt,
                 content_html=content_html,
                 content_text=content_text,
-                file_hwp=file_a if file_a else None,
-                file_pdf=file_b if file_b else None,
-                has_attachment=has_attachment
+                attachments=attachments,
+                source_url=f"https://spo.isdc.co.kr/goNoticeView.do?idx={post_id}"
             )
 
-            logger.debug(f"게시글 파싱 완료: {title} (첨부: {has_attachment})")
+            logger.debug(f"게시글 파싱 완료: {title} (첨부: {len(attachments)}개)")
             return post_detail
 
         except Exception as e:
             logger.error(f"PostDetail 변환 실패: {e}")
             return None
-
-    @staticmethod
-    def _extract_text_from_html(html: str) -> str:
-        """HTML에서 텍스트만 추출"""
-        if not html:
-            return ""
-
-        try:
-            soup = BeautifulSoup(html, "html.parser")
-
-            # script, style 태그 제거
-            for tag in soup(["script", "style"]):
-                tag.decompose()
-
-            # 텍스트 추출 및 정리
-            text = soup.get_text(separator="\n", strip=True)
-
-            # 연속된 빈 줄 제거
-            lines = [line.strip() for line in text.split("\n") if line.strip()]
-            return "\n".join(lines)
-
-        except Exception as e:
-            logger.warning(f"HTML 파싱 실패: {e}")
-            return html
 
     @staticmethod
     def to_dict(post_detail: PostDetail) -> Dict:
@@ -110,9 +117,17 @@ class DetailCrawler:
             "date": post_detail.date,
             "content_html": post_detail.content_html,
             "content_text": post_detail.content_text,
-            "file_hwp": post_detail.file_hwp,
-            "file_pdf": post_detail.file_pdf,
-            "has_attachment": post_detail.has_attachment
+            "attachments": [
+                {
+                    "filename": att.filename,
+                    "file_size": att.file_size,
+                    "file_ext": att.file_ext,
+                    "download_url": att.download_url
+                }
+                for att in post_detail.attachments
+            ],
+            "has_attachment": post_detail.has_attachment,
+            "source_url": post_detail.source_url
         }
 
 

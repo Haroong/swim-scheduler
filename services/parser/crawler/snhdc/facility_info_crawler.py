@@ -5,79 +5,55 @@
 import requests
 from bs4 import BeautifulSoup
 from typing import Dict, List, Optional
-from dataclasses import dataclass
 import logging
 import re
 
-from models.facility import Facility, Organization, get_snhdc_program_url
+from models.enum.facility import Facility, Organization, get_snhdc_program_url
+from crawler.base.facility_crawler import BaseFacilityCrawler
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class FacilityInfo:
-    """시설 기본 정보"""
-    facility_name: str
-    facility_url: str
-    weekday_schedule: List[Dict]
-    weekend_schedule: Dict
-    fees: Dict
-    notes: List[str]
-    last_updated: str
+class FacilityInfoCrawler(BaseFacilityCrawler):
+    """
+    성남도시개발공사 시설 이용안내 페이지 크롤러
 
-
-class FacilityInfoCrawler:
-    """성남도시개발공사 시설 이용안내 페이지 크롤러"""
+    각 체육센터의 일일자유이용 안내 페이지에서 기본 정보 수집
+    """
 
     def __init__(self):
+        super().__init__()
         self.session = requests.Session()
         self.session.headers.update({
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         })
 
-    def crawl_all_facilities(self) -> List[FacilityInfo]:
-        """
-        모든 시설의 일일자유이용 정보 크롤링
+    def get_target_facilities(self) -> List[Facility]:
+        """크롤링 대상 시설 목록 (SNHDC 시설)"""
+        return Facility.snhdc_facilities()
 
-        Returns:
-            FacilityInfo 객체 리스트
-        """
-        results = []
-
-        for facility in Facility.snhdc_facilities():
-            url = get_snhdc_program_url(facility)
-            logger.info(f"{facility.name} 일일자유이용 안내 크롤링 중...")
-            info = self.crawl_facility(facility.name, url)
-            if info:
-                results.append(info)
-                logger.info(f"✓ {facility.name} 크롤링 완료")
-            else:
-                logger.warning(f"✗ {facility.name} 크롤링 실패")
-
-        return results
-
-    def crawl_facility(self, facility_name: str, url: str) -> Optional[FacilityInfo]:
+    def crawl_facility(self, facility: Facility) -> dict:
         """
         단일 시설의 일일자유이용 안내 크롤링
 
         Args:
-            facility_name: 시설명
-            url: 일일자유이용 안내 페이지 URL
+            facility: Facility Enum 객체
 
         Returns:
-            FacilityInfo 객체 또는 None
+            시설 정보 딕셔너리
         """
+        url = get_snhdc_program_url(facility)
+
         try:
             response = self.session.get(url, timeout=10)
             response.raise_for_status()
         except requests.RequestException as e:
-            logger.error(f"페이지 요청 실패: {e}")
-            return None
+            self.logger.error(f"페이지 요청 실패: {e}")
+            return {}
 
-        return self._parse_facility_page(facility_name, url, response.text)
+        return self._parse_facility_page(facility.name, url, response.text)
 
-    def _parse_facility_page(self, facility_name: str, url: str, html: str) -> Optional[FacilityInfo]:
+    def _parse_facility_page(self, facility_name: str, url: str, html: str) -> dict:
         """일일자유이용 안내 페이지 파싱 (다양한 HTML 구조 지원)"""
         soup = BeautifulSoup(html, "html.parser")
 

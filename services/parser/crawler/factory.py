@@ -170,25 +170,22 @@ class CrawlerFactory:
 
 
 # ===================================================================
-# 기관별 크롤러 등록 (실제 구현체 작성 후 주석 해제)
+# 기관별 크롤러 등록
 # ===================================================================
 
-# 현재는 아직 구현체가 Base 클래스를 상속하도록 변경되지 않았으므로 주석 처리
-# Phase 2에서 구현체 리팩토링 후 주석 해제 예정
+from crawler.snhdc.list_crawler import ListCrawler as SnhdcListCrawler
+from crawler.snhdc.detail_crawler import DetailCrawler as SnhdcDetailCrawler
+from crawler.snhdc.facility_info_crawler import FacilityInfoCrawler as SnhdcFacilityCrawler
 
-# from crawler.snhdc.list_crawler import SnhdcListCrawler
-# from crawler.snhdc.detail_crawler import SnhdcDetailCrawler
-# from crawler.snhdc.facility_crawler import SnhdcFacilityCrawler
-#
-# from crawler.snyouth.list_crawler import SnyouthListCrawler
-# from crawler.snyouth.detail_crawler import SnyouthDetailCrawler
-# from crawler.snyouth.facility_crawler import SnyouthFacilityCrawler
-#
-# # SNHDC 등록
-# CrawlerFactory.register("snhdc", SnhdcListCrawler, SnhdcDetailCrawler, SnhdcFacilityCrawler)
-#
-# # SNYOUTH 등록
-# CrawlerFactory.register("snyouth", SnyouthListCrawler, SnyouthDetailCrawler, SnyouthFacilityCrawler)
+from crawler.snyouth.list_crawler import ListCrawler as SnyouthListCrawler
+from crawler.snyouth.detail_crawler import DetailCrawler as SnyouthDetailCrawler
+from crawler.snyouth.facility_info_crawler import FacilityInfoCrawler as SnyouthFacilityCrawler
+
+# SNHDC 등록
+CrawlerFactory.register("snhdc", SnhdcListCrawler, SnhdcDetailCrawler, SnhdcFacilityCrawler)
+
+# SNYOUTH 등록
+CrawlerFactory.register("snyouth", SnyouthListCrawler, SnyouthDetailCrawler, SnyouthFacilityCrawler)
 
 
 # ===================================================================
@@ -198,7 +195,25 @@ class CrawlerFactory:
 if __name__ == "__main__":
     # 등록된 기관 확인
     print("지원하는 기관:", CrawlerFactory.get_supported_orgs())
+    print()
 
-    # 사용 예시 (실제로는 Phase 2 이후 동작)
-    # list_crawler, detail_crawler, facility_crawler = CrawlerFactory.create("snhdc")
-    # posts = list_crawler.get_posts(keyword="수영", max_pages=5)
+    # 사용 예시 1: 전체 크롤러 생성
+    print("=== SNHDC 크롤러 생성 ===")
+    list_crawler, detail_crawler, facility_crawler = CrawlerFactory.create("snhdc")
+    print(f"ListCrawler: {list_crawler.__class__.__name__}")
+    print(f"DetailCrawler: {detail_crawler.__class__.__name__}")
+    print(f"FacilityCrawler: {facility_crawler.__class__.__name__}")
+    print()
+
+    # 사용 예시 2: 개별 크롤러 생성
+    print("=== SNYOUTH ListCrawler만 생성 ===")
+    snyouth_list = CrawlerFactory.create_list_crawler("snyouth")
+    print(f"ListCrawler: {snyouth_list.__class__.__name__}")
+    print()
+
+    # 사용 예시 3: 실제 크롤링 (주석 처리 - 실제 실행 시 주석 해제)
+    # print("=== SNHDC 게시글 목록 크롤링 테스트 ===")
+    # posts = list_crawler.get_posts(keyword="수영", max_pages=1)
+    # print(f"수집된 게시글: {len(posts)}개")
+    # if posts:
+    #     print(f"첫 번째 게시글: {posts[0].title}")

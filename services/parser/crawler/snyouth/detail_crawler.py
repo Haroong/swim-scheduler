@@ -5,62 +5,50 @@
 import requests
 from bs4 import BeautifulSoup
 from typing import List, Optional
-from dataclasses import dataclass
 import logging
 import re
 
-logging.basicConfig(level=logging.INFO)
+from crawler.base.detail_crawler import BaseDetailCrawler
+from dto.crawler_dto import PostDetail, Attachment
+
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://www.snyouth.or.kr"
 
 
-@dataclass
-class AttachmentInfo:
-    """첨부파일 정보"""
-    filename: str        # 파일명
-    download_url: str    # 다운로드 URL
-    file_size: str       # 파일 크기
-    file_ext: str        # 확장자
+class DetailCrawler(BaseDetailCrawler):
+    """
+    성남시청소년청년재단 상세 페이지 크롤러
 
-
-@dataclass
-class PostDetail:
-    """게시글 상세 정보"""
-    title: str                           # 제목
-    date: str                            # 등록일
-    content: str                         # 본문 텍스트
-    attachments: List[AttachmentInfo]    # 첨부파일 목록
-    source_url: str                      # 원본 URL
-
-
-class DetailCrawler:
-    """상세 페이지 크롤러"""
+    HTML 파싱으로 게시글 상세 정보 수집
+    """
 
     def __init__(self):
+        super().__init__()
         self.session = requests.Session()
         self.session.headers.update({
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         })
 
-    def get_detail(self, detail_url: str) -> Optional[PostDetail]:
+    def get_detail(self, post_url: str, **kwargs) -> Optional[PostDetail]:
         """
         상세 페이지에서 정보 추출
 
         Args:
-            detail_url: 상세 페이지 URL
+            post_url: 상세 페이지 URL
+            **kwargs: 추가 파라미터
 
         Returns:
             PostDetail 객체 또는 None
         """
         try:
-            response = self.session.get(detail_url, timeout=10)
+            response = self.session.get(post_url, timeout=10)
             response.raise_for_status()
         except requests.RequestException as e:
-            logger.error(f"상세 페이지 요청 실패: {e}")
+            self.logger.error(f"상세 페이지 요청 실패: {e}")
             return None
 
-        return self._parse_detail_page(response.text, detail_url)
+        return self._parse_detail_page(response.text, post_url)
 
     def _parse_detail_page(self, html: str, source_url: str) -> Optional[PostDetail]:
         """상세 페이지 HTML 파싱"""
@@ -86,10 +74,26 @@ class DetailCrawler:
         # 첨부파일 추출
         attachments = self._extract_attachments(soup)
 
+        # 시설명 추출 (제목에서 추출 시도)
+        facility_name = ""
+        # 기본값으로 "성남시청소년청년재단" 사용
+        if "야탑" in title:
+            facility_name = "야탑유스센터"
+        elif "중원" in title:
+            facility_name = "중원유스센터"
+        elif "판교" in title:
+            facility_name = "판교유스센터"
+
+        # PostDetail 객체 생성 (dto 구조에 맞춰)
+        content_html = str(soup.find("div", class_="view")) if soup.find("div", class_="view") else ""
+
         return PostDetail(
+            post_id="",  # snyouth는 post_id가 URL에만 있음
             title=title,
+            facility_name=facility_name,
             date=date,
-            content=content,
+            content_html=content_html,
+            content_text=content,
             attachments=attachments,
             source_url=source_url
         )
@@ -153,7 +157,7 @@ class DetailCrawler:
 
         return ""
 
-    def _extract_attachments(self, soup: BeautifulSoup) -> List[AttachmentInfo]:
+    def _extract_attachments(self, soup: BeautifulSoup) -> List[Attachment]:
         """첨부파일 목록 추출"""
         attachments = []
 
@@ -182,7 +186,7 @@ class DetailCrawler:
             # 확장자 추출
             file_ext = filename.split(".")[-1].lower() if "." in filename else ""
 
-            attachment = AttachmentInfo(
+            attachment = Attachment(
                 filename=filename,
                 download_url=download_url,
                 file_size=file_size,
