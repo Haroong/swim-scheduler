@@ -27,8 +27,11 @@ def validate_valid_month(valid_month: str, notice_date: str) -> bool:
             return False
         vm_year, vm_month = int(vm_match.group(1)), int(vm_match.group(2))
 
-        # notice_date에서 년월 추출
+        # notice_date에서 년월 추출 (YYYY-MM-DD 또는 한글 형식 지원)
         nd_match = re.search(r'(\d{4})-(\d{2})-(\d{2})', notice_date)
+        if not nd_match:
+            # 한글 형식 시도: "2026년 1월 19일"
+            nd_match = re.search(r'(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일', notice_date)
         if not nd_match:
             logger.warning(f"notice_date 형식 오류: {notice_date}")
             return False
