@@ -102,24 +102,34 @@ class AttachmentDownloader:
         """
         downloaded_files = []
 
+        # attachments에서 HWP와 PDF 파일명 추출
+        file_hwp = None
+        file_pdf = None
+
+        for att in post_detail.attachments:
+            if att.file_ext.lower() == "hwp":
+                file_hwp = att.filename
+            elif att.file_ext.lower() == "pdf":
+                file_pdf = att.filename
+
         # HWP 파일 다운로드
-        if post_detail.file_hwp:
+        if file_hwp:
             file_path = self.download_file(
                 idx=post_detail.post_id,
                 file_no=0,
-                file_a=post_detail.file_hwp,
-                file_b=post_detail.file_pdf
+                file_a=file_hwp,
+                file_b=file_pdf
             )
             if file_path:
                 downloaded_files.append(file_path)
 
         # PDF 파일 다운로드
-        if post_detail.file_pdf:
+        if file_pdf:
             file_path = self.download_file(
                 idx=post_detail.post_id,
                 file_no=1,
-                file_a=post_detail.file_hwp,
-                file_b=post_detail.file_pdf
+                file_a=file_hwp,
+                file_b=file_pdf
             )
             if file_path:
                 downloaded_files.append(file_path)
