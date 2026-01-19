@@ -9,10 +9,10 @@ from dataclasses import dataclass
 import logging
 import re
 
+from models.facility import Facility, Organization, get_snhdc_program_url
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-BASE_URL = "https://spo.isdc.co.kr"
 
 
 @dataclass
@@ -30,16 +30,6 @@ class FacilityInfo:
 class FacilityInfoCrawler:
     """성남도시개발공사 시설 이용안내 페이지 크롤러"""
 
-    # 각 센터별 일일자유이용 안내 페이지 URL
-    # 패턴: {prefix}_programGuide.do 또는 {prefix}_dailyFreeGuide.do
-    FACILITIES = {
-        "탄천종합운동장": f"{BASE_URL}/tan_programGuide.do",  # 프로그램안내에 포함
-        "성남종합운동장": f"{BASE_URL}/sns_programGuide.do",  # 프로그램안내에 포함
-        "황새울국민체육센터": f"{BASE_URL}/ggp_programGuide.do",  # 프로그램안내에 포함
-        "판교스포츠센터": f"{BASE_URL}/pgs_dailyFreeGuide.do",  # 프로그램안내에 포함
-        "평생스포츠센터": f"{BASE_URL}/spo_programGuide.do",  # 별도 페이지
-    }
-
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update({
@@ -55,14 +45,15 @@ class FacilityInfoCrawler:
         """
         results = []
 
-        for facility_name, url in self.FACILITIES.items():
-            logger.info(f"{facility_name} 일일자유이용 안내 크롤링 중...")
-            info = self.crawl_facility(facility_name, url)
+        for facility in Facility.snhdc_facilities():
+            url = get_snhdc_program_url(facility)
+            logger.info(f"{facility.name} 일일자유이용 안내 크롤링 중...")
+            info = self.crawl_facility(facility.name, url)
             if info:
                 results.append(info)
-                logger.info(f"✓ {facility_name} 크롤링 완료")
+                logger.info(f"✓ {facility.name} 크롤링 완료")
             else:
-                logger.warning(f"✗ {facility_name} 크롤링 실패")
+                logger.warning(f"✗ {facility.name} 크롤링 실패")
 
         return results
 

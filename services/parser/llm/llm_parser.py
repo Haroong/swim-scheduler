@@ -10,7 +10,7 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
-from parser.prompts import EXTRACTION_PROMPT
+from llm.prompts import EXTRACTION_PROMPT
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -27,16 +27,10 @@ LLM_MODEL = os.environ.get("LLM_MODEL", "claude-3-5-haiku-20241022")
 class LLMParser:
     """LLM 기반 자유수영 정보 파서"""
 
-    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
-        """
-        초기화
-
-        Args:
-            api_key: Anthropic API 키 (없으면 환경변수에서 로드)
-            model: 사용할 LLM 모델 (없으면 환경변수에서 로드)
-        """
-        self.api_key = api_key or ANTHROPIC_API_KEY
-        self.model = model or LLM_MODEL
+    def __init__(self):
+        """환경변수에서 API 키와 모델 정보를 로드하여 초기화"""
+        self.api_key = ANTHROPIC_API_KEY
+        self.model = LLM_MODEL
         self.client = None
         self._init_client()
 

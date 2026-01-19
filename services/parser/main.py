@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 
 from service.swim_crawler_service import SwimCrawlerService
-from parser.llm_parser import LLMParser
+from llm.llm_parser import LLMParser
 from database.repository import SwimRepository
 from utils.date_validator import validate_valid_month
 

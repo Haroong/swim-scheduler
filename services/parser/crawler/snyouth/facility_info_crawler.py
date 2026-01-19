@@ -9,10 +9,10 @@ from dataclasses import dataclass
 import logging
 import re
 
+from models.facility import Facility, Organization, get_snyouth_facility_url
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-BASE_URL = "https://www.snyouth.or.kr"
 
 
 @dataclass
@@ -30,13 +30,6 @@ class FacilityInfo:
 class FacilityInfoCrawler:
     """시설 이용안내 페이지 크롤러"""
 
-    # 각 센터별 이용안내 페이지 URL
-    FACILITIES = {
-        "중원유스센터": f"{BASE_URL}/fmcs/57",
-        "판교유스센터": f"{BASE_URL}/fmcs/133",
-        "야탑유스센터": f"{BASE_URL}/fmcs/158"
-    }
-
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update({
@@ -52,14 +45,15 @@ class FacilityInfoCrawler:
         """
         results = []
 
-        for facility_name, url in self.FACILITIES.items():
-            logger.info(f"{facility_name} 이용안내 크롤링 중...")
-            info = self.crawl_facility(facility_name, url)
+        for facility in Facility.snyouth_facilities():
+            url = get_snyouth_facility_url(facility)
+            logger.info(f"{facility.name} 이용안내 크롤링 중...")
+            info = self.crawl_facility(facility.name, url)
             if info:
                 results.append(info)
-                logger.info(f"✓ {facility_name} 크롤링 완료")
+                logger.info(f"✓ {facility.name} 크롤링 완료")
             else:
-                logger.warning(f"✗ {facility_name} 크롤링 실패")
+                logger.warning(f"✗ {facility.name} 크롤링 실패")
 
         return results
 

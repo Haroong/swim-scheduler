@@ -26,10 +26,11 @@ from crawler.snhdc.detail_crawler import DetailCrawler as SnhdcDetailCrawler
 from crawler.snhdc.attachment_downloader import AttachmentDownloader
 
 # 파서
-from parser.hwp_text_extractor import HwpTextExtractor
-from parser.pdf_text_extractor import PdfTextExtractor
-from parser.llm_parser import LLMParser
-from parser.content_validator import ContentValidator
+from extractors.hwp_text_extractor import HwpTextExtractor
+from extractors.pdf_text_extractor import PdfTextExtractor
+from extractors.content_validator import ContentValidator
+from llm.llm_parser import LLMParser
+from models.facility import Facility
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -437,16 +438,11 @@ class SwimCrawlerService:
             if name in candidate or candidate in name:
                 return candidate
 
-        # 키워드 매칭
-        keywords_map = {
-            "중원": "중원유스센터",
-            "판교": "판교유스센터",
-            "야탑": "야탑유스센터"
-        }
-
-        for keyword, full_name in keywords_map.items():
-            if keyword in name and full_name in candidates:
-                return full_name
+        # 별칭 매칭 (Facility Enum 사용)
+        for facility in Facility:
+            for alias in facility.aliases:
+                if alias in name and facility.name in candidates:
+                    return facility.name
 
         return None
 

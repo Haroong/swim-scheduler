@@ -3,10 +3,12 @@ swim_programs.json의 공지사항을 LLM으로 파싱하여 DB에 저장
 """
 import json
 import logging
+import re
 from pathlib import Path
-from parser.llm_parser import LLMParser
-from parser.content_validator import ContentValidator
+from llm.llm_parser import LLMParser
+from extractors.content_validator import ContentValidator
 from database.repository import SwimRepository
+from services.parser.models.enum.facility import Facility
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,8 +24,6 @@ def parse_notice_date(date_str: str) -> str:
     예: "2026년 1월 16일" -> "2026-01"
         "2026-01-15 17:17:11" -> "2026-01"
     """
-    import re
-
     # "YYYY년 M월" 패턴
     match = re.search(r'(\d{4})년\s*(\d{1,2})월', date_str)
     if match:
@@ -43,46 +43,32 @@ def extract_facility_name(notice: dict) -> str:
     """공지사항에서 시설명 추출"""
     title = notice.get('title', '')
     content = notice.get('content_text', '')
-
-    # 제목에서 시설명 추출 시도
-    facilities = [
-        '중원유스센터', '판교유스센터', '야탑유스센터',
-        '탄천종합운동장', '성남종합운동장', '황새울국민체육센터',
-        '판교스포츠센터', '평생학습관스포츠센터', '평생스포츠센터'
-    ]
-
-    for facility in facilities:
-        if facility in title:
-            return facility
-
-    # source_url에서 추출 시도 (시설 이용 안내 페이지)
     source_url = notice.get('source_url', '')
-    if 'fmcs/57' in source_url:
-        return '중원유스센터'
-    elif 'fmcs/133' in source_url:
-        return '판교유스센터'
-    elif 'fmcs/158' in source_url:
-        return '야탑유스센터'
 
-    # content_text에서 추출 시도 (snyouth 공지사항 처리)
-    # snyouth는 3개 유스센터 중 하나이므로 content에서 검색
-    for facility in ['중원유스센터', '판교유스센터', '야탑유스센터']:
-        if facility in content:
-            return facility
+    # 1. 제목에서 시설명 추출 시도
+    for facility in Facility:
+        if facility.name in title:
+            return facility.name
 
-    # snyouth 공지사항은 특정 시설명이 없으면 모든 유스센터 공통으로 간주
-    # URL이 snyouth이고 위에서 추출 실패하면 중원유스센터 기본값 (가장 많이 사용)
+    # 2. source_url에서 SNYOUTH fmcs 코드로 추출
+    for facility in Facility.snyouth_facilities():
+        if f'fmcs/{facility.url_code}' in source_url:
+            return facility.name
+
+    # 3. content_text에서 SNYOUTH 시설명 추출
+    for facility in Facility.snyouth_facilities():
+        if facility.name in content:
+            return facility.name
+
+    # 4. snyouth 공지사항 기본값 처리
     if 'snyouth.or.kr' in source_url:
-        # content에서 전화번호로 시설 추론
-        import re
+        # 전화번호로 시설 추론 (729-93xx, 729-96xx는 중원유스센터)
         phones = re.findall(r'729-\d{4}', content)
         if phones:
-            # 중원유스센터 전화번호 패턴 (729-93xx, 729-96xx)
-            return '중원유스센터'
+            return Facility.JUNGWON_YOUTH.name
 
-        # 전화번호도 없으면 snyouth 공지사항은 중원유스센터 기본값
-        # (3개 유스센터 중 가장 큰 시설이고 대부분의 공지사항이 중원유스센터 관련)
-        return '중원유스센터'
+        # 기본값: 중원유스센터 (가장 큰 시설이고 대부분의 공지사항이 중원유스센터 관련)
+        return Facility.JUNGWON_YOUTH.name
 
     return ''
 
@@ -172,7 +158,6 @@ def main():
                     "facility_name": facility_name,
                     "valid_month": parsed_result.get("valid_month", valid_month_guess),
                     "schedules": parsed_result.get("schedules", []),
-                    "fees": parsed_result.get("fees", []),
                     "notes": parsed_result.get("notes", []),
                     "source_url": notice.get('source_url', '') or f"공지사항: {title}"
                 }

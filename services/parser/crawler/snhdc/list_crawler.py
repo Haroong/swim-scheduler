@@ -8,11 +8,12 @@ from dataclasses import dataclass
 import logging
 import time
 
+from models.facility import Facility, Organization, SNHDC_BASE_URL
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-BASE_URL = "https://spo.isdc.co.kr"
-API_URL = f"{BASE_URL}/selectNoticeList.ajax"
+API_URL = f"{SNHDC_BASE_URL}/selectNoticeList.ajax"
 
 
 @dataclass
@@ -29,15 +30,27 @@ class PostSummary:
 class ListCrawler:
     """공지사항 게시판 목록 크롤러"""
 
-    # 업장 ID 매핑
-    FACILITY_IDS = {
-        "황새울국민체육센터": "01",
-        "성남종합운동장": "02",
-        "탄천종합운동장": "03",
-        "판교스포츠센터": "04",
-        "평생스포츠센터": "05",
-        "금곡공원국민체육센터": "06"
-    }
+    @staticmethod
+    def get_facility_id(facility_name: str) -> Optional[str]:
+        """시설명으로 facility_id 조회"""
+        facility = Facility.find_by_name(facility_name)
+        if facility and facility.facility_id:
+            return facility.facility_id
+        # 금곡공원국민체육센터는 공지사항에만 존재 (Facility Enum에 없음)
+        if facility_name == "금곡공원국민체육센터":
+            return "06"
+        return None
+
+    @staticmethod
+    def get_all_facility_ids() -> Dict[str, str]:
+        """모든 SNHDC 시설의 ID 매핑 반환"""
+        result = {}
+        for facility in Facility.snhdc_facilities():
+            if facility.facility_id:
+                result[facility.name] = facility.facility_id
+        # 금곡공원국민체육센터 추가 (공지사항에만 존재)
+        result["금곡공원국민체육센터"] = "06"
+        return result
 
     def __init__(self):
         self.session = requests.Session()
