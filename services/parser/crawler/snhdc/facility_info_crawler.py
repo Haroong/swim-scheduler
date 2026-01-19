@@ -94,15 +94,15 @@ class FacilityInfoCrawler(BaseFacilityCrawler):
         from datetime import datetime
         last_updated = datetime.now().strftime("%Y-%m-%d")
 
-        return FacilityInfo(
-            facility_name=facility_name,
-            facility_url=url,
-            weekday_schedule=weekday_schedule,
-            weekend_schedule=weekend_schedule,
-            fees=fees,
-            notes=notes,
-            last_updated=last_updated
-        )
+        return {
+            "facility_name": facility_name,
+            "facility_url": url,
+            "weekday_schedule": weekday_schedule,
+            "weekend_schedule": weekend_schedule,
+            "fees": fees,
+            "notes": notes,
+            "last_updated": last_updated
+        }
 
     def _parse_schedule_table(self, table) -> tuple:
         """
@@ -242,17 +242,9 @@ class FacilityInfoCrawler(BaseFacilityCrawler):
 
         return notes[:10]  # 최대 10개
 
-    def to_dict(self, facility_info: FacilityInfo) -> Dict:
-        """FacilityInfo를 딕셔너리로 변환"""
-        return {
-            "facility_name": facility_info.facility_name,
-            "facility_url": facility_info.facility_url,
-            "weekday_schedule": facility_info.weekday_schedule,
-            "weekend_schedule": facility_info.weekend_schedule,
-            "fees": facility_info.fees,
-            "notes": facility_info.notes,
-            "last_updated": facility_info.last_updated
-        }
+    def to_dict(self, facility_info: dict) -> Dict:
+        """시설 정보 딕셔너리 반환 (이미 딕셔너리이므로 그대로 반환)"""
+        return facility_info
 
 
 # 테스트용 코드
