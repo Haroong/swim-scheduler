@@ -10,6 +10,7 @@ import re
 
 from models.enum.facility import Facility, Organization, get_snhdc_program_url
 from crawler.base.facility_crawler import BaseFacilityCrawler
+from dto.crawler_dto import FacilityInfoResponse, WeekdayScheduleItem, WeekendSchedule
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ class FacilityInfoCrawler(BaseFacilityCrawler):
         """크롤링 대상 시설 목록 (SNHDC 시설)"""
         return Facility.snhdc_facilities()
 
-    def crawl_facility(self, facility: Facility) -> dict:
+    def crawl_facility(self, facility: Facility) -> FacilityInfoResponse:
         """
         단일 시설의 일일자유이용 안내 크롤링
 
@@ -40,7 +41,7 @@ class FacilityInfoCrawler(BaseFacilityCrawler):
             facility: Facility Enum 객체
 
         Returns:
-            시설 정보 딕셔너리
+            FacilityInfoResponse DTO
         """
         url = get_snhdc_program_url(facility)
 
@@ -53,7 +54,7 @@ class FacilityInfoCrawler(BaseFacilityCrawler):
 
         return self._parse_facility_page(facility.name, url, response.text)
 
-    def _parse_facility_page(self, facility_name: str, url: str, html: str) -> dict:
+    def _parse_facility_page(self, facility_name: str, url: str, html: str) -> FacilityInfoResponse:
         """일일자유이용 안내 페이지 파싱 (다양한 HTML 구조 지원)"""
         soup = BeautifulSoup(html, "html.parser")
 
@@ -88,21 +89,34 @@ class FacilityInfoCrawler(BaseFacilityCrawler):
             return None
 
         # 4. 데이터 파싱
-        weekday_schedule, weekend_schedule, fees = self._parse_schedule_table(table)
+        weekday_schedule_raw, weekend_schedule_raw, fees = self._parse_schedule_table(table)
         notes = self._parse_notes(search_section)
 
-        from datetime import datetime
-        last_updated = datetime.now().strftime("%Y-%m-%d")
+        # DTO로 변환
+        weekday_schedule = [
+            WeekdayScheduleItem(
+                start_time=s.get("start_time", ""),
+                end_time=s.get("end_time", ""),
+                days=s.get("days", ["월", "화", "수", "목", "금"]),
+                capacity=s.get("capacity", 0),
+                notes=s.get("notes", "")
+            )
+            for s in weekday_schedule_raw
+        ]
 
-        return {
-            "facility_name": facility_name,
-            "facility_url": url,
-            "weekday_schedule": weekday_schedule,
-            "weekend_schedule": weekend_schedule,
-            "fees": fees,
-            "notes": notes,
-            "last_updated": last_updated
-        }
+        weekend_schedule = WeekendSchedule(
+            saturday=weekend_schedule_raw.get("saturday", {}),
+            sunday=weekend_schedule_raw.get("sunday", {})
+        )
+
+        return FacilityInfoResponse(
+            facility_name=facility_name,
+            facility_url=url,
+            weekday_schedule=weekday_schedule,
+            weekend_schedule=weekend_schedule,
+            fees=fees,
+            notes=notes
+        )
 
     def _parse_schedule_table(self, table) -> tuple:
         """
@@ -242,9 +256,11 @@ class FacilityInfoCrawler(BaseFacilityCrawler):
 
         return notes[:10]  # 최대 10개
 
-    def to_dict(self, facility_info: dict) -> Dict:
-        """시설 정보 딕셔너리 반환 (이미 딕셔너리이므로 그대로 반환)"""
-        return facility_info
+    def to_dict(self, facility_info: FacilityInfoResponse) -> Dict:
+        """시설 정보 딕셔너리 반환"""
+        if facility_info is None:
+            return {}
+        return facility_info.to_dict()
 
 
 # 테스트용 코드
@@ -274,8 +290,8 @@ if __name__ == "__main__":
 
     import json
     for facility in facilities:
-        print(f"\n{'='*60}")
-        print(f"{facility.facility_name}")
-        print(f"{'='*60}")
-        data = crawler.to_dict(facility)
-        print(json.dumps(data, ensure_ascii=False, indent=2))
+        if facility:
+            print(f"\n{'='*60}")
+            print(f"{facility.facility_name}")
+            print(f"{'='*60}")
+            print(json.dumps(facility.to_dict(), ensure_ascii=False, indent=2))

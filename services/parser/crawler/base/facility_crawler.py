@@ -4,10 +4,13 @@
 모든 기관의 FacilityCrawler가 상속해야 하는 공통 인터페이스
 """
 from abc import ABC, abstractmethod
-from typing import List, Dict
+from typing import List, Dict, Optional, TYPE_CHECKING
 import logging
 
 from models.enum.facility import Facility, Organization
+
+if TYPE_CHECKING:
+    from dto.crawler_dto import FacilityInfoResponse
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +31,7 @@ class BaseFacilityCrawler(ABC):
         self.logger = logging.getLogger(self.__class__.__name__)
 
     @abstractmethod
-    def crawl_facility(self, facility: Facility) -> dict:
+    def crawl_facility(self, facility: Facility) -> Optional["FacilityInfoResponse"]:
         """
         단일 시설의 기본 스케줄 크롤링
 
@@ -36,15 +39,7 @@ class BaseFacilityCrawler(ABC):
             facility: Facility Enum 객체
 
         Returns:
-            시설 정보 딕셔너리
-            {
-                "facility_name": str,
-                "weekday_schedule": [...],
-                "saturday_schedule": [...],
-                "sunday_schedule": [...],
-                "fees": [...],
-                ...
-            }
+            FacilityInfoResponse DTO 또는 None
 
         Example:
             >>> def crawl_facility(self, facility: Facility):
@@ -68,12 +63,12 @@ class BaseFacilityCrawler(ABC):
         """
         pass
 
-    def crawl_all_facilities(self) -> List[dict]:
+    def crawl_all_facilities(self) -> List["FacilityInfoResponse"]:
         """
         모든 시설 크롤링 (공통 로직)
 
         Returns:
-            시설 정보 딕셔너리 리스트
+            FacilityInfoResponse DTO 리스트
         """
         facilities = self.get_target_facilities()
         results = []
@@ -96,34 +91,36 @@ class BaseFacilityCrawler(ABC):
         self.logger.info(f"전체 크롤링 완료: {len(results)}/{len(facilities)}개 시설")
         return results
 
-    def to_dict(self, facility_data: dict) -> dict:
+    def to_dict(self, facility_data: "FacilityInfoResponse") -> dict:
         """
         시설 데이터를 표준 형식으로 변환 (공통 유틸리티)
 
         Args:
-            facility_data: 크롤링한 시설 데이터
+            facility_data: FacilityInfoResponse DTO
 
         Returns:
             표준화된 딕셔너리
         """
-        # 기본 구조는 그대로 반환 (필요시 하위 클래스에서 오버라이드)
-        return facility_data
+        if facility_data is None:
+            return {}
+        return facility_data.to_dict()
 
-    def validate_schedule(self, schedule: dict) -> bool:
+    def validate_schedule(self, schedule: "FacilityInfoResponse") -> bool:
         """
         스케줄 데이터 유효성 검증
 
         Args:
-            schedule: 스케줄 딕셔너리
+            schedule: FacilityInfoResponse DTO
 
         Returns:
             유효성 여부
         """
-        required_fields = ["facility_name"]
+        if schedule is None:
+            self.logger.warning("스케줄 데이터가 None입니다")
+            return False
 
-        for field in required_fields:
-            if field not in schedule or not schedule[field]:
-                self.logger.warning(f"필수 필드 누락: {field}")
-                return False
+        if not schedule.facility_name:
+            self.logger.warning("필수 필드 누락: facility_name")
+            return False
 
         return True

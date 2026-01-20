@@ -11,6 +11,7 @@ from typing import Optional
 from dotenv import load_dotenv
 
 from llm.prompts import EXTRACTION_PROMPT
+from dto.parser_dto import ParsedScheduleData
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -53,7 +54,7 @@ class LLMParser:
         except Exception as e:
             logger.error(f"Anthropic 클라이언트 초기화 실패: {e}")
 
-    def parse(self, raw_text: str, facility_name: str = "", notice_date: str = "", source_url: str = "") -> Optional[dict]:
+    def parse(self, raw_text: str, facility_name: str = "", notice_date: str = "", source_url: str = "") -> Optional[ParsedScheduleData]:
         """
         raw_text에서 자유수영 정보 추출
 
@@ -64,7 +65,7 @@ class LLMParser:
             source_url: 원본 URL
 
         Returns:
-            파싱된 데이터 딕셔너리 또는 None
+            ParsedScheduleData DTO 또는 None
         """
         if not self.client:
             logger.error("Anthropic 클라이언트가 초기화되지 않았습니다.")
@@ -98,9 +99,11 @@ class LLMParser:
 
             if result:
                 result["source_url"] = source_url
-                logger.info(f"파싱 성공: {result.get('facility_name', 'Unknown')}")
+                parsed_data = ParsedScheduleData.from_dict(result)
+                logger.info(f"파싱 성공: {parsed_data.facility_name}")
+                return parsed_data
 
-            return result
+            return None
 
         except Exception as e:
             logger.error(f"LLM 파싱 실패: {e}")
@@ -134,7 +137,7 @@ class LLMParser:
         logger.error(f"JSON 추출 실패: {text[:200]}...")
         return None
 
-    def parse_batch(self, items: list) -> list:
+    def parse_batch(self, items: list) -> list[ParsedScheduleData]:
         """
         여러 항목 일괄 파싱
 
@@ -142,7 +145,7 @@ class LLMParser:
             items: [{"raw_text": str, "facility_name": str, "source_url": str}, ...]
 
         Returns:
-            파싱된 결과 리스트
+            ParsedScheduleData 리스트
         """
         results = []
         total = len(items)
@@ -183,4 +186,4 @@ if __name__ == "__main__":
 
     result = parser.parse(test_text, facility_name="야탑청소년수련관")
     if result:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))

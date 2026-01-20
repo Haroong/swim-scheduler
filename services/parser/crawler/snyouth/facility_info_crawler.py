@@ -11,6 +11,7 @@ import re
 
 from models.enum.facility import Facility, Organization, get_snyouth_facility_url
 from crawler.base.facility_crawler import BaseFacilityCrawler
+from dto.crawler_dto import FacilityInfoResponse, WeekdayScheduleItem, WeekendSchedule
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ class FacilityInfoCrawler(BaseFacilityCrawler):
         """크롤링 대상 시설 목록 (SNYOUTH 시설)"""
         return Facility.snyouth_facilities()
 
-    def crawl_facility(self, facility: Facility) -> dict:
+    def crawl_facility(self, facility: Facility) -> FacilityInfoResponse:
         """
         단일 시설의 이용안내 크롤링
 
@@ -41,7 +42,7 @@ class FacilityInfoCrawler(BaseFacilityCrawler):
             facility: Facility Enum 객체
 
         Returns:
-            시설 정보 딕셔너리
+            FacilityInfoResponse DTO
         """
         url = get_snyouth_facility_url(facility)
 
@@ -54,7 +55,7 @@ class FacilityInfoCrawler(BaseFacilityCrawler):
 
         return self._parse_facility_page(facility.name, url, response.text)
 
-    def _parse_facility_page(self, facility_name: str, url: str, html: str) -> dict:
+    def _parse_facility_page(self, facility_name: str, url: str, html: str) -> FacilityInfoResponse:
         """이용안내 페이지 파싱"""
         soup = BeautifulSoup(html, "html.parser")
 
@@ -62,28 +63,42 @@ class FacilityInfoCrawler(BaseFacilityCrawler):
         contents = soup.find('div', class_='contents')
         if not contents:
             self.logger.error("콘텐츠 영역을 찾을 수 없습니다")
-            return {}
+            return None
 
         text = contents.get_text()
 
         # 데이터 파싱
-        weekday_schedule = self._parse_weekday_schedule(text)
-        weekend_schedule = self._parse_weekend_schedule(text)
+        weekday_schedule_raw = self._parse_weekday_schedule(text)
+        weekend_schedule_raw = self._parse_weekend_schedule(text)
         fees = self._parse_fees(text)
         notes = self._parse_notes(text)
 
-        from datetime import datetime
-        last_updated = datetime.now().strftime("%Y-%m-%d")
+        # DTO로 변환
+        weekday_schedule = [
+            WeekdayScheduleItem(
+                start_time=s.get("start_time", ""),
+                end_time=s.get("end_time", ""),
+                days=s.get("days", ["월", "화", "수", "목", "금"]),
+                type=s.get("type", ""),
+                capacity=s.get("capacity", 0),
+                notes=s.get("notes", "")
+            )
+            for s in weekday_schedule_raw
+        ]
 
-        return {
-            "facility_name": facility_name,
-            "facility_url": url,
-            "weekday_schedule": weekday_schedule,
-            "weekend_schedule": weekend_schedule,
-            "fees": fees,
-            "notes": notes,
-            "last_updated": last_updated
-        }
+        weekend_schedule = WeekendSchedule(
+            saturday=weekend_schedule_raw.get("saturday", {}),
+            sunday=weekend_schedule_raw.get("sunday", {})
+        )
+
+        return FacilityInfoResponse(
+            facility_name=facility_name,
+            facility_url=url,
+            weekday_schedule=weekday_schedule,
+            weekend_schedule=weekend_schedule,
+            fees=fees,
+            notes=notes
+        )
 
     def _parse_weekday_schedule(self, text: str) -> List[Dict]:
         """평일 스케줄 파싱"""
@@ -241,6 +256,6 @@ if __name__ == "__main__":
     import json
     for facility in facilities:
         print(f"\n{'='*60}")
-        print(f"{facility['facility_name']}")
+        print(f"{facility.facility_name}")
         print(f"{'='*60}")
-        print(json.dumps(facility, ensure_ascii=False, indent=2))
+        print(json.dumps(facility.to_dict(), ensure_ascii=False, indent=2))
