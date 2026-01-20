@@ -11,21 +11,15 @@
 """
 import argparse
 import json
-import logging
-from pathlib import Path
 
+from config import settings
+from config.logging_config import get_logger
 from services.swim_crawler_service import SwimCrawlerService
 from database.repository import SwimRepository
 from utils.date_validator import validate_valid_month
 
-# 로깅 설정
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-)
-logger = logging.getLogger(__name__)
-
-STORAGE_DIR = Path(__file__).parent / "storage"
+logger = get_logger(__name__)
+STORAGE_DIR = settings.STORAGE_DIR
 
 
 def crawl(keyword: str = "수영", max_pages: int = 3):

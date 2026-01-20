@@ -1,27 +1,22 @@
 """
 MariaDB 연결 관리
 """
-import os
 import logging
-from pathlib import Path
 from contextlib import contextmanager
 
-from dotenv import load_dotenv
+from config import settings
+from config.logging_config import get_logger
 
-logger = logging.getLogger(__name__)
-
-# .env 파일에서 환경변수 로드
-env_path = Path(__file__).parent.parent / ".env"
-load_dotenv(env_path)
+logger = get_logger(__name__)
 
 # DB 설정
 DB_CONFIG = {
-    "host": os.environ.get("DB_HOST", "localhost"),
-    "port": int(os.environ.get("DB_PORT", 3306)),
-    "user": os.environ.get("DB_USER", "root"),
-    "password": os.environ.get("DB_PASSWORD", ""),
-    "database": os.environ.get("DB_NAME", "swim_parser_dev"),
-    "charset": "utf8mb4",
+    "host": settings.DB_HOST,
+    "port": settings.DB_PORT,
+    "user": settings.DB_USER,
+    "password": settings.DB_PASSWORD,
+    "database": settings.DB_NAME,
+    "charset": settings.DB_CHARSET,
 }
 
 

@@ -3,26 +3,15 @@ LLM 기반 자유수영 정보 파서
 Anthropic Claude API를 사용하여 raw_text에서 구조화된 데이터 추출
 """
 import json
-import os
 import logging
-from pathlib import Path
 from typing import Optional
 
-from dotenv import load_dotenv
-
+from config import settings
+from config.logging_config import get_logger
 from llm.prompts import EXTRACTION_PROMPT
 from dto.parser_dto import ParsedScheduleData
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# .env 파일에서 환경변수 로드
-env_path = Path(__file__).parent.parent / ".env"
-load_dotenv(env_path)
-
-# 환경변수에서 API 키 및 모델 로드
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
-LLM_MODEL = os.environ.get("LLM_MODEL", "claude-3-5-haiku-20241022")
+logger = get_logger(__name__)
 
 
 class LLMParser:
@@ -30,8 +19,10 @@ class LLMParser:
 
     def __init__(self):
         """환경변수에서 API 키와 모델 정보를 로드하여 초기화"""
-        self.api_key = ANTHROPIC_API_KEY
-        self.model = LLM_MODEL
+        self.api_key = settings.ANTHROPIC_API_KEY
+        self.model = settings.LLM_MODEL
+        self.max_tokens = settings.LLM_MAX_TOKENS
+        self.temperature = settings.LLM_TEMPERATURE
         self.client = None
         self._init_client()
 
@@ -87,7 +78,8 @@ class LLMParser:
         try:
             response = self.client.messages.create(
                 model=self.model,
-                max_tokens=2000,
+                max_tokens=self.max_tokens,
+                temperature=self.temperature,
                 messages=[
                     {"role": "user", "content": prompt}
                 ]
