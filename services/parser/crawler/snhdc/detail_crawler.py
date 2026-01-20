@@ -8,6 +8,7 @@ import logging
 
 from crawler.base.detail_crawler import BaseDetailCrawler
 from dto.crawler_dto import PostDetail, Attachment
+from utils.html_utils import extract_clean_text
 
 logger = logging.getLogger(__name__)
 
@@ -64,13 +65,7 @@ class DetailCrawler(BaseDetailCrawler):
             file_b = list_item.get("file_b", "").strip()  # PDF
 
             # HTML에서 텍스트 추출
-            from bs4 import BeautifulSoup
-            soup = BeautifulSoup(content_html, "html.parser")
-            for tag in soup(["script", "style"]):
-                tag.decompose()
-            text = soup.get_text(separator="\n", strip=True)
-            lines = [line.strip() for line in text.split("\n") if line.strip()]
-            content_text = "\n".join(lines)
+            content_text = extract_clean_text(content_html)
 
             # 첨부파일 정보 생성
             attachments = []

@@ -9,6 +9,7 @@ import logging
 from models.enum.facility import Facility, Organization, SNHDC_BASE_URL
 from crawler.base.list_crawler import BaseListCrawler
 from dto.crawler_dto import PostSummary, PostDetail, Attachment
+from utils.html_utils import extract_clean_text
 
 logger = logging.getLogger(__name__)
 
@@ -168,8 +169,6 @@ class ListCrawler(BaseListCrawler):
     def _item_to_post_detail(self, item: Dict) -> Optional[PostDetail]:
         """API 응답 아이템을 PostDetail로 변환"""
         try:
-            from bs4 import BeautifulSoup
-
             post_id = str(item.get("idx", ""))
             title = item.get("sbjt", "").strip()
             facility_name = item.get("com_nm", "").strip()
@@ -177,12 +176,7 @@ class ListCrawler(BaseListCrawler):
             content_html = item.get("content", "")
 
             # HTML에서 텍스트 추출
-            soup = BeautifulSoup(content_html, "html.parser")
-            for tag in soup(["script", "style"]):
-                tag.decompose()
-            text = soup.get_text(separator="\n", strip=True)
-            lines = [line.strip() for line in text.split("\n") if line.strip()]
-            content_text = "\n".join(lines)
+            content_text = extract_clean_text(content_html)
 
             # 첨부파일 정보
             attachments = []
