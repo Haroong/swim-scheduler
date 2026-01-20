@@ -2,7 +2,6 @@
 상세 페이지 크롤러
 게시글 상세 페이지에서 제목, 본문, 첨부파일 정보를 추출
 """
-import requests
 from bs4 import BeautifulSoup
 from typing import List, Optional
 import logging
@@ -10,6 +9,7 @@ import re
 
 from crawler.base.detail_crawler import BaseDetailCrawler
 from dto.crawler_dto import PostDetail, Attachment
+from utils.http_utils import create_session
 
 logger = logging.getLogger(__name__)
 
@@ -25,10 +25,7 @@ class DetailCrawler(BaseDetailCrawler):
 
     def __init__(self):
         super().__init__()
-        self.session = requests.Session()
-        self.session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        })
+        self.session = create_session()
 
     def get_detail(self, post_url: str, facility_name: str = "", **kwargs) -> Optional[PostDetail]:
         """

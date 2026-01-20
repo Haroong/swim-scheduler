@@ -2,13 +2,13 @@
 게시글 목록 크롤러
 성남시청소년청년재단 수영장 공지 게시판에서 게시글 목록을 수집
 """
-import requests
 from bs4 import BeautifulSoup
 from typing import List, Dict, Optional
 import logging
 
 from crawler.base.list_crawler import BaseListCrawler
 from dto.crawler_dto import PostSummary
+from utils.http_utils import create_session
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +25,7 @@ class ListCrawler(BaseListCrawler):
 
     def _init_session(self):
         """HTTP 세션 초기화"""
-        session = requests.Session()
-        session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        })
-        return session
+        return create_session()
 
     def _crawl_page(self, keyword: str, page: int, search_field: str = "Ti") -> List[PostSummary]:
         """단일 페이지 크롤링"""

@@ -2,7 +2,6 @@
 성남도시개발공사 공지사항 게시판 크롤러
 AJAX API를 통해 게시글 목록을 수집
 """
-import requests
 from typing import List, Dict, Optional
 import logging
 
@@ -10,6 +9,7 @@ from models.enum.facility import Facility, Organization, SNHDC_BASE_URL
 from crawler.base.list_crawler import BaseListCrawler
 from dto.crawler_dto import PostSummary, PostDetail, Attachment
 from utils.html_utils import extract_clean_text
+from utils.http_utils import create_session
 
 logger = logging.getLogger(__name__)
 
@@ -48,13 +48,10 @@ class ListCrawler(BaseListCrawler):
 
     def _init_session(self):
         """HTTP 세션 초기화 (SNHDC AJAX API용)"""
-        session = requests.Session()
-        session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        return create_session({
             "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
             "X-Requested-With": "XMLHttpRequest"
         })
-        return session
 
     def _crawl_page(self, keyword: str, page: int, facility_id: Optional[str] = None) -> List[PostSummary]:
         """단일 페이지 크롤링"""

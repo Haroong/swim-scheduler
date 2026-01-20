@@ -2,7 +2,6 @@
 성남도시개발공사 시설 이용안내 크롤러
 각 체육센터의 일일자유이용 안내 페이지에서 기본 자유수영 운영 정보 수집
 """
-import requests
 from bs4 import BeautifulSoup
 from typing import Dict, List, Optional
 import logging
@@ -11,6 +10,7 @@ import re
 from models.enum.facility import Facility, Organization, get_snhdc_program_url
 from crawler.base.facility_crawler import BaseFacilityCrawler
 from dto.crawler_dto import FacilityInfoResponse, WeekdayScheduleItem, WeekendSchedule
+from utils.http_utils import create_session
 
 logger = logging.getLogger(__name__)
 
@@ -24,10 +24,7 @@ class FacilityInfoCrawler(BaseFacilityCrawler):
 
     def __init__(self):
         super().__init__()
-        self.session = requests.Session()
-        self.session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        })
+        self.session = create_session()
 
     def get_target_facilities(self) -> List[Facility]:
         """크롤링 대상 시설 목록 (SNHDC 시설)"""

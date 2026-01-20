@@ -2,13 +2,14 @@
 첨부파일 다운로더
 게시글의 첨부파일을 다운로드하여 로컬에 저장
 """
-import requests
 import os
 from pathlib import Path
 from typing import Optional
 import logging
 import re
 from urllib.parse import unquote
+
+from utils.http_utils import create_session
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,10 +29,7 @@ class AttachmentDownloader:
         self.download_dir = download_dir or DEFAULT_DOWNLOAD_DIR
         self.download_dir.mkdir(parents=True, exist_ok=True)
 
-        self.session = requests.Session()
-        self.session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        })
+        self.session = create_session()
 
     def download(self, url: str, filename: Optional[str] = None) -> Optional[Path]:
         """

@@ -2,12 +2,12 @@
 성남시청소년청년재단 첨부파일 다운로더
 URL이 직접 제공되므로 단순 HTTP GET 다운로드
 """
-import requests
 from pathlib import Path
 from typing import Optional, List
 import logging
 
 from dto.crawler_dto import PostDetail
+from utils.http_utils import create_session
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -24,10 +24,7 @@ class AttachmentDownloader:
         self.download_dir = download_dir or Path("downloads")
         self.download_dir.mkdir(parents=True, exist_ok=True)
 
-        self.session = requests.Session()
-        self.session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        })
+        self.session = create_session()
 
     def download_file(self, download_url: str, filename: str) -> Optional[Path]:
         """
