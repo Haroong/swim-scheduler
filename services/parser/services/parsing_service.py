@@ -11,7 +11,7 @@ from crawler.snhdc.attachment_downloader import AttachmentDownloader as SnhdcAtt
 from crawler.snyouth.attachment_downloader import AttachmentDownloader as SnyouthAttachmentDownloader
 from extractors.hwp_text_extractor import HwpTextExtractor
 from extractors.pdf_text_extractor import PdfTextExtractor
-from extractors.content_validator import ContentValidator
+from validators.content_validator import ContentValidator
 from llm.llm_parser import LLMParser
 from dto.crawler_dto import PostDetail
 
