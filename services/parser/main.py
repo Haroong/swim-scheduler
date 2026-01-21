@@ -16,7 +16,7 @@ from config import settings
 from config.logging_config import get_logger
 from services.swim_crawler_service import SwimCrawlerService
 from database.repository import SwimRepository
-from utils.date_validator import validate_valid_month
+from validators.date_validator import validate_valid_month
 
 logger = get_logger(__name__)
 STORAGE_DIR = settings.STORAGE_DIR
