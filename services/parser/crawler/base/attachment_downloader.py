@@ -15,11 +15,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # 기본 저장 경로
-DEFAULT_DOWNLOAD_DIR = Path(__file__).parent.parent / "storage" / "raw_data"
+DEFAULT_DOWNLOAD_DIR = Path(__file__).parent.parent.parent / "storage" / "raw_data"
 
 
-class AttachmentDownloader:
-    """첨부파일 다운로더"""
+class BaseAttachmentDownloader:
+    """첨부파일 다운로더 기본 클래스"""
 
     def __init__(self, download_dir: Optional[Path] = None):
         """
@@ -136,7 +136,7 @@ class AttachmentDownloader:
 
 # 테스트용 코드
 if __name__ == "__main__":
-    downloader = AttachmentDownloader()
+    downloader = BaseAttachmentDownloader()
 
     # 테스트 다운로드 (실제 존재하는 파일 URL로 교체 필요)
     test_url = "https://www.snyouth.or.kr/File/Download/100c1cdbf2a1306e341918e1a91869ec"

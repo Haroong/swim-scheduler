@@ -6,13 +6,13 @@ from pathlib import Path
 from typing import List
 import logging
 
-from crawler.attachment_downloader import AttachmentDownloader as BaseDownloader
+from crawler.base.attachment_downloader import BaseAttachmentDownloader
 from dto.crawler_dto import PostDetail
 
 logger = logging.getLogger(__name__)
 
 
-class AttachmentDownloader(BaseDownloader):
+class AttachmentDownloader(BaseAttachmentDownloader):
     """SNYOUTH 첨부파일 다운로더 (base 상속)"""
 
     def download_from_post_detail(self, post_detail: PostDetail) -> List[Path]:

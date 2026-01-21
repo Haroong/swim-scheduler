@@ -5,9 +5,11 @@ Crawler Base 패키지
 from crawler.base.list_crawler import BaseListCrawler
 from crawler.base.detail_crawler import BaseDetailCrawler
 from crawler.base.facility_crawler import BaseFacilityCrawler
+from crawler.base.attachment_downloader import BaseAttachmentDownloader
 
 __all__ = [
     "BaseListCrawler",
     "BaseDetailCrawler",
     "BaseFacilityCrawler",
+    "BaseAttachmentDownloader",
 ]
