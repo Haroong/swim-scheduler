@@ -8,7 +8,7 @@ from dataclasses import dataclass
 import logging
 import re
 
-from models.enum.facility import Facility, Organization, get_snyouth_facility_url
+from enums.facility import Facility, Organization, get_snyouth_facility_url
 from crawler.base.facility_crawler import BaseFacilityCrawler
 from dto.crawler_dto import FacilityInfoResponse, WeekdayScheduleItem, WeekendSchedule
 from utils.http_utils import create_session

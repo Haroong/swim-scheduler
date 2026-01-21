@@ -321,7 +321,7 @@ class SwimCrawlerService:
 
     def _match_facility_name(self, name: str, candidates: List[str]) -> Optional[str]:
         """시설명 매칭 (유연한 매칭)"""
-        from models.enum.facility import Facility
+        from enums.facility import Facility
 
         # 정확히 일치
         if name in candidates:

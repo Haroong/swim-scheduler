@@ -5,7 +5,7 @@ AJAX API를 통해 게시글 목록을 수집
 from typing import List, Dict, Optional
 import logging
 
-from models.enum.facility import Facility, Organization, SNHDC_BASE_URL
+from enums.facility import Facility, Organization, SNHDC_BASE_URL
 from crawler.base.list_crawler import BaseListCrawler
 from dto.crawler_dto import PostSummary, PostDetail, Attachment
 from utils.html_utils import extract_clean_text

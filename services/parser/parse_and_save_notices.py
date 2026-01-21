@@ -8,7 +8,7 @@ from pathlib import Path
 from llm.llm_parser import LLMParser
 from validators.content_validator import ContentValidator
 from database.repository import SwimRepository
-from services.parser.models.enum.facility import Facility
+from enums.facility import Facility
 
 logging.basicConfig(
     level=logging.INFO,

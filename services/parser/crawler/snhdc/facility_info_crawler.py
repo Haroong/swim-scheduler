@@ -7,7 +7,7 @@ from typing import Dict, List, Optional
 import logging
 import re
 
-from models.enum.facility import Facility, Organization, get_snhdc_program_url
+from enums.facility import Facility, Organization, get_snhdc_program_url
 from crawler.base.facility_crawler import BaseFacilityCrawler
 from dto.crawler_dto import FacilityInfoResponse, WeekdayScheduleItem, WeekendSchedule
 from utils.http_utils import create_session

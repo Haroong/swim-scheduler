@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Optional, TYPE_CHECKING
 import logging
 
-from models.enum.facility import Facility, Organization
+from enums.facility import Facility, Organization
 
 if TYPE_CHECKING:
     from dto.crawler_dto import FacilityInfoResponse
