@@ -122,7 +122,7 @@ class SwimCrawlerService:
         }
 
     def parse_attachments(self, org_key: str, monthly_notices: Optional[Dict[str, List[Dict]]] = None,
-                          save: bool = True) -> List[Dict]:
+                          save: bool = True, skip_existing: bool = True) -> List[Dict]:
         """
         기관별 첨부파일 다운로드 및 파싱 (snhdc, snyouth 모두 지원)
 
@@ -130,6 +130,7 @@ class SwimCrawlerService:
             org_key: 기관 키 ("snhdc" 또는 "snyouth")
             monthly_notices: 월별 공지사항 (없으면 파일에서 로드)
             save: 파싱 결과 저장 여부
+            skip_existing: 이미 DB에 있는 공지 건너뛰기 (True: 신규만 처리, False: 모두 처리)
 
         Returns:
             파싱된 결과 리스트
@@ -151,9 +152,30 @@ class SwimCrawlerService:
             logger.warning(f"{org_name}: 첨부파일이 있는 공지가 없습니다.")
             return []
 
-        # 모든 첨부파일 처리
-        notices_to_process = notices_with_files
-        logger.info(f"처리할 공지: {len(notices_to_process)}개")
+        # 신규 공지만 필터링 (DB 중복 확인)
+        if skip_existing:
+            from database.repository import SwimRepository
+            repo = SwimRepository()
+            existing_urls = repo.get_existing_notice_urls()
+            repo.close()
+
+            notices_to_process = [
+                n for n in notices_with_files
+                if n.get("source_url") not in existing_urls
+            ]
+            skipped_count = len(notices_with_files) - len(notices_to_process)
+
+            if skipped_count > 0:
+                logger.info(f"이미 처리된 공지 {skipped_count}개 건너뛰기")
+            logger.info(f"신규 공지: {len(notices_to_process)}개")
+
+            # 신규 공지가 없으면 조기 종료
+            if not notices_to_process:
+                logger.info(f"{org_name}: 처리할 신규 공지가 없습니다.")
+                return []
+        else:
+            notices_to_process = notices_with_files
+            logger.info(f"처리할 공지: {len(notices_to_process)}개")
 
         # ParsingService 사용 (기관별 다운로더 선택)
         parsing_service = ParsingService(download_dir=DOWNLOAD_DIR / org_key, org_key=org_key)

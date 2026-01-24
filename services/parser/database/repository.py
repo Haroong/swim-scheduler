@@ -106,6 +106,41 @@ class SwimRepository:
         cursor.execute("SELECT id FROM notice WHERE source_url = %s", (source_url,))
         return cursor.fetchone() is not None
 
+    def is_new_notice(self, source_url: str) -> bool:
+        """
+        신규 공지사항 여부 확인 (DB에 없으면 신규)
+
+        Args:
+            source_url: 공지사항 URL
+
+        Returns:
+            신규 여부 (True: 신규, False: 이미 처리됨)
+        """
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            return not self._notice_exists(cursor, source_url)
+        except Exception as e:
+            logger.error(f"신규 공지 확인 실패: {e}")
+            return True  # 에러 시 안전하게 신규로 간주
+
+    def get_existing_notice_urls(self) -> set:
+        """
+        DB에 저장된 모든 공지사항 URL 조회
+
+        Returns:
+            URL set
+        """
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            cursor.execute("SELECT source_url FROM notice")
+            rows = cursor.fetchall()
+            return {row[0] for row in rows if row[0]}
+        except Exception as e:
+            logger.error(f"기존 공지 URL 조회 실패: {e}")
+            return set()
+
     def _save_notice(self, cursor, facility_id: int, source_url: str,
                      valid_date: str, notes: List[str]) -> int:
         """공지 저장"""
