@@ -319,11 +319,10 @@ class ScheduleService:
         Returns:
             달력 데이터 (일별 시설 목록)
         """
-        month_str = f"{year}년 {month}월"
+        # DB에 저장된 형식: YYYY-MM
+        month_str = f"{year}-{month:02d}"
         schedules = ScheduleService.get_schedules(month=month_str)
 
-        # TODO: 일별로 변환하는 로직 추가
-        # 현재는 기본 스케줄 데이터만 반환
         return {
             "year": year,
             "month": month,
