@@ -44,7 +44,7 @@ def crawl(keyword: str = "수영", max_pages: int = 3):
     return monthly_notices
 
 
-def parse(monthly_notices=None, max_files: int = 10):
+def parse(monthly_notices=None):
     """2단계: LLM 파싱 (첨부파일 기반)"""
     logger.info("=== 2단계: LLM 파싱 시작 ===")
 
@@ -56,8 +56,7 @@ def parse(monthly_notices=None, max_files: int = 10):
         org_results = service.parse_attachments(
             org_key=org_key,
             monthly_notices=monthly_notices,
-            save=True,
-            max_files=max_files
+            save=True
         )
         parsed_results.extend(org_results)
         logger.info(f"{org_key.upper()} 파싱 완료: {len(org_results)}개")
@@ -129,7 +128,6 @@ def main():
     parser.add_argument("--save", action="store_true", help="DB 저장만 실행")
     parser.add_argument("--keyword", default="수영", help="검색 키워드 (기본: 수영)")
     parser.add_argument("--max-pages", type=int, default=3, help="최대 페이지 수 (기본: 3)")
-    parser.add_argument("--max-files", type=int, default=10, help="최대 파싱 파일 수 (기본: 10)")
 
     args = parser.parse_args()
 
@@ -139,7 +137,7 @@ def main():
         return
 
     if args.parse:
-        parse(max_files=args.max_files)
+        parse()
         return
 
     if args.save:
@@ -150,7 +148,7 @@ def main():
     logger.info("=== 전체 파이프라인 시작 ===")
 
     monthly_notices = crawl(keyword=args.keyword, max_pages=args.max_pages)
-    validated_results = parse(monthly_notices=monthly_notices, max_files=args.max_files)
+    validated_results = parse(monthly_notices=monthly_notices)
     save_to_db(validated_results=validated_results)
 
     logger.info("=== 전체 파이프라인 완료 ===")

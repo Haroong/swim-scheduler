@@ -122,7 +122,7 @@ class SwimCrawlerService:
         }
 
     def parse_attachments(self, org_key: str, monthly_notices: Optional[Dict[str, List[Dict]]] = None,
-                          save: bool = True, max_files: int = 10) -> List[Dict]:
+                          save: bool = True) -> List[Dict]:
         """
         기관별 첨부파일 다운로드 및 파싱 (snhdc, snyouth 모두 지원)
 
@@ -130,7 +130,6 @@ class SwimCrawlerService:
             org_key: 기관 키 ("snhdc" 또는 "snyouth")
             monthly_notices: 월별 공지사항 (없으면 파일에서 로드)
             save: 파싱 결과 저장 여부
-            max_files: 최대 처리 파일 수
 
         Returns:
             파싱된 결과 리스트
@@ -152,8 +151,8 @@ class SwimCrawlerService:
             logger.warning(f"{org_name}: 첨부파일이 있는 공지가 없습니다.")
             return []
 
-        # 최대 개수 제한
-        notices_to_process = notices_with_files[:max_files]
+        # 모든 첨부파일 처리
+        notices_to_process = notices_with_files
         logger.info(f"처리할 공지: {len(notices_to_process)}개")
 
         # ParsingService 사용 (기관별 다운로더 선택)
@@ -179,19 +178,18 @@ class SwimCrawlerService:
         return parsed_results
 
     def parse_snhdc_attachments(self, monthly_notices: Optional[Dict[str, List[Dict]]] = None,
-                                 save: bool = True, max_files: int = 10) -> List[Dict]:
+                                 save: bool = True) -> List[Dict]:
         """
         SNHDC 첨부파일 다운로드 및 파싱 (하위 호환성 유지)
 
         Args:
             monthly_notices: 월별 공지사항 (없으면 파일에서 로드)
             save: 파싱 결과 저장 여부
-            max_files: 최대 처리 파일 수
 
         Returns:
             파싱된 결과 리스트
         """
-        return self.parse_attachments("snhdc", monthly_notices, save, max_files)
+        return self.parse_attachments("snhdc", monthly_notices, save)
 
     @staticmethod
     def _dict_to_post_detail(notice_dict: Dict) -> PostDetail:
@@ -372,7 +370,7 @@ if __name__ == "__main__":
     print("\n" + "="*60)
     print("3. SNHDC 첨부파일 다운로드 및 파싱")
     print("="*60)
-    parsed_attachments = service.parse_snhdc_attachments(monthly_notices, save=True, max_files=5)
+    parsed_attachments = service.parse_snhdc_attachments(monthly_notices, save=True)
     print(f"  파싱 완료: {len(parsed_attachments)}개")
     for result in parsed_attachments[:3]:  # 처음 3개만
         print(f"    - [{result['facility_name']}] {result.get('valid_month', 'N/A')}")
