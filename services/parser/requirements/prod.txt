@@ -7,6 +7,7 @@
 # Monitoring & Error Tracking
 sentry-sdk>=1.40.0,<2.0.0        # 에러 추적
 prometheus-client>=0.19.0,<1.0.0 # 메트릭 수집
+python-logging-loki>=0.3.1,<1.0.0 # Loki 로그 전송
 
 # Performance
 gunicorn>=21.2.0,<22.0.0         # WSGI 서버 (향후 API 서버용)

@@ -136,14 +136,36 @@ def setup_logging(
         file_handler.setFormatter(formatter)
         root_logger.addHandler(file_handler)
 
-    # 3. 외부 라이브러리 로그 레벨 조정
+    # 3. Loki 핸들러 (프로덕션 환경)
+    if settings.LOKI_ENABLED:
+        try:
+            import logging_loki
+
+            loki_handler = logging_loki.LokiHandler(
+                url=settings.LOKI_URL,
+                tags=settings.LOKI_TAGS,
+                version="1",
+            )
+            root_logger.addHandler(loki_handler)
+            loki_status = "활성화"
+        except ImportError:
+            logging.warning("python-logging-loki가 설치되지 않았습니다. Loki 로깅을 건너뜁니다.")
+            loki_status = "비활성화 (라이브러리 없음)"
+        except Exception as e:
+            logging.error(f"Loki 핸들러 설정 실패: {e}")
+            loki_status = f"비활성화 (에러: {e})"
+    else:
+        loki_status = "비활성화"
+
+    # 4. 외부 라이브러리 로그 레벨 조정
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("requests").setLevel(logging.WARNING)
     logging.getLogger("anthropic").setLevel(logging.INFO)
 
     logging.info(
         f"로깅 설정 완료 | 레벨: {log_level} | 포맷: {log_format} | "
-        f"파일 로깅: {'활성화' if log_file_enabled else '비활성화'}"
+        f"파일 로깅: {'활성화' if log_file_enabled else '비활성화'} | "
+        f"Loki: {loki_status}"
     )
 
 

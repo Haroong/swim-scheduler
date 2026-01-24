@@ -1,0 +1,38 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'swim-scheduler'
+
+# Alertmanager 설정 (향후 추가 가능)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+#           - alertmanager:9093
+
+# 메트릭 수집 대상
+scrape_configs:
+  # Prometheus 자체 메트릭
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Parser 서비스 메트릭
+  - job_name: 'parser'
+    static_configs:
+      - targets: ['parser:8001']  # Parser가 메트릭을 expose하는 포트
+    scrape_interval: 30s
+    metrics_path: '/metrics'
+
+  # API 서비스 메트릭
+  - job_name: 'api'
+    static_configs:
+      - targets: ['api:8000']
+    scrape_interval: 30s
+    metrics_path: '/metrics'
+
+  # Node Exporter (시스템 메트릭, 필요시 추가)
+  # - job_name: 'node'
+  #   static_configs:
+  #     - targets: ['node-exporter:9100']

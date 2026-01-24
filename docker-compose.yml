@@ -87,6 +87,56 @@ services:
     environment:
       VITE_API_BASE_URL: http://localhost:${API_PORT:-8000}
 
+  # Loki (로그 수집)
+  loki:
+    image: grafana/loki:2.9.3
+    container_name: swim-scheduler-loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki-config.yml:/etc/loki/local-config.yaml
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - swim-network
+
+  # Prometheus (메트릭 수집)
+  prometheus:
+    image: prom/prometheus:v2.48.1
+    container_name: swim-scheduler-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - swim-network
+
+  # Grafana (통합 대시보드)
+  grafana:
+    image: grafana/grafana:10.2.3
+    container_name: swim-scheduler-grafana
+    ports:
+      - "3001:3000"  # 3000은 frontend가 사용중이므로 3001 사용
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      - swim-network
+    depends_on:
+      - loki
+      - prometheus
+
 networks:
   swim-network:
     driver: bridge
@@ -94,3 +144,6 @@ networks:
 volumes:
   db_data:
   parser_data:
+  loki_data:
+  prometheus_data:
+  grafana_data:
