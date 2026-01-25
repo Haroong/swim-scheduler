@@ -5,6 +5,9 @@ FastAPI 기반 수영장 스케줄 API 서버
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+# 로깅 설정 초기화 (가장 먼저 import)
+from app.config import logging_config
+
 from app.routes import schedules
 
 app = FastAPI(
