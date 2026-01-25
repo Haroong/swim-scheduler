@@ -5,6 +5,7 @@
 from pathlib import Path
 from typing import Optional
 import logging
+import requests
 
 from utils.http_utils import create_session
 
