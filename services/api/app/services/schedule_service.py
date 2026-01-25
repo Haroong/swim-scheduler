@@ -112,7 +112,7 @@ class ScheduleService:
                 query += " AND s.valid_month = %s"
                 params.append(month)
 
-            query += " ORDER BY f.name, s.valid_month, s.day_type, ss.start_time"
+            query += " ORDER BY s.valid_month DESC, f.name, s.day_type, ss.start_time"
 
             cursor.execute(query, params)
             rows = cursor.fetchall()
