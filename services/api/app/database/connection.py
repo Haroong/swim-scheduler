@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 parser_path = Path(__file__).parent.parent.parent.parent / "parser"
 sys.path.insert(0, str(parser_path))
 
-from database.connection import get_connection as parser_get_connection
+from infrastructure.database.connection import get_connection as parser_get_connection
 
 
 def get_connection():
