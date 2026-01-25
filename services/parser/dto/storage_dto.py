@@ -3,7 +3,6 @@
 DB 저장 과정에서 사용되는 데이터 전송 객체
 """
 from dataclasses import dataclass
-from typing import List
 from dto.parser_dto import ParsedScheduleData, ScheduleData, FeeData
 
 
@@ -22,7 +21,7 @@ class ScheduleStorageData:
     """스케줄 저장 데이터 (DB 스키마 매핑용)"""
     day_type: str
     season: str | None
-    sessions: List[SessionStorageData]
+    sessions: list[SessionStorageData]
 
 
 @dataclass
@@ -42,10 +41,10 @@ class ScheduleStorageDTO:
     Repository 레이어에서 사용
     """
     facility_name: str
-    schedules: List[ScheduleStorageData]
-    fees: List[FeeStorageData]
+    schedules: list[ScheduleStorageData]
+    fees: list[FeeStorageData]
     valid_month: str           # DB 형식 (YYYY-MM)
-    notes: List[str]
+    notes: list[str]
     source_url: str
 
     @classmethod

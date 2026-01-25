@@ -4,7 +4,6 @@
 """
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, List
 from datetime import datetime
 
 
@@ -16,8 +15,8 @@ class ParseRequest:
     파싱 파이프라인에 전달되는 입력 데이터
     """
     # 입력 소스 (둘 중 하나는 필수)
-    file_path: Optional[Path] = None      # 파일 경로 (HWP/PDF)
-    raw_text: Optional[str] = None        # 직접 제공된 텍스트
+    file_path: Path | None = None      # 파일 경로 (HWP/PDF)
+    raw_text: str | None = None        # 직접 제공된 텍스트
 
     # 메타데이터 (파싱 힌트로 사용)
     facility_name: str = ""               # 시설명
@@ -36,8 +35,8 @@ class SessionData:
     session_name: str          # 세션명 (아침, 점심, 저녁 등)
     start_time: str            # 시작 시간 (HH:MM)
     end_time: str              # 종료 시간 (HH:MM)
-    capacity: Optional[int] = None    # 정원
-    lanes: Optional[int] = None       # 레인 수
+    capacity: int | None = None    # 정원
+    lanes: int | None = None       # 레인 수
 
 
 @dataclass
@@ -46,7 +45,7 @@ class ScheduleData:
     day_type: str              # 평일, 토요일, 일요일
     season: str = ""           # 하절기, 동절기, 또는 빈 문자열
     season_months: str = ""    # 적용 월 (예: "3~10월")
-    sessions: List[SessionData] = field(default_factory=list)
+    sessions: list[SessionData] = field(default_factory=list)
 
 
 @dataclass
@@ -65,10 +64,10 @@ class ParsedScheduleData:
     파싱 파이프라인의 최종 출력 데이터
     """
     facility_name: str                              # 시설명
-    schedules: List[ScheduleData] = field(default_factory=list)  # 요일별 스케줄
-    fees: List[FeeData] = field(default_factory=list)           # 이용료
+    schedules: list[ScheduleData] = field(default_factory=list)  # 요일별 스케줄
+    fees: list[FeeData] = field(default_factory=list)           # 이용료
     valid_month: str = ""                           # 적용 월 (예: 2026년 1월)
-    notes: List[str] = field(default_factory=list)  # 기타 안내사항
+    notes: list[str] = field(default_factory=list)  # 기타 안내사항
     source_url: str = ""                            # 원본 URL
     parsed_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
