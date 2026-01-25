@@ -12,11 +12,11 @@
 import argparse
 import json
 
-from config import settings
-from config.logging_config import get_logger
-from services.swim_crawler_service import SwimCrawlerService
-from database.repository import SwimRepository
-from validators.date_validator import validate_valid_month
+from infrastructure.config import settings
+from infrastructure.config.logging_config import get_logger
+from application.swim_crawler_service import SwimCrawlerService
+from infrastructure.database.repository import SwimRepository
+from core.parser.validators.date_validator import validate_valid_month
 
 logger = get_logger(__name__)
 STORAGE_DIR = settings.STORAGE_DIR
