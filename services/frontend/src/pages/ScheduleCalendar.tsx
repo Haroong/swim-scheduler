@@ -92,7 +92,7 @@ function ScheduleCalendar() {
             <div className="no-data">스케줄 데이터가 없습니다.</div>
           ) : (
             schedules.map((schedule) => (
-              <div key={schedule.facility_id} className="schedule-card">
+              <div key={`${schedule.facility_id}-${schedule.valid_month}`} className="schedule-card">
                 <div className="schedule-header">
                   <h2>{schedule.facility_name}</h2>
                   <span className="valid-month">{schedule.valid_month}</span>
