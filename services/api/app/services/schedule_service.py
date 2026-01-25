@@ -241,7 +241,7 @@ class ScheduleService:
                         ss.capacity,
                         ss.lanes,
                         n.source_url,
-                        n.notes
+                        n.title
                     FROM facility f
                     JOIN swim_schedule s ON f.id = s.facility_id
                     JOIN swim_session ss ON s.id = ss.schedule_id
@@ -268,7 +268,7 @@ class ScheduleService:
                     capacity = row[10]
                     lanes = row[11]
                     source_url = row[12]
-                    notes = row[13]
+                    notice_title = row[13]
 
                     if facility_id not in facilities_map:
                         facilities_map[facility_id] = {
@@ -280,7 +280,7 @@ class ScheduleService:
                             "valid_month": valid_month_db,
                             "sessions": [],
                             "source_url": source_url,
-                            "notes": notes
+                            "notice_title": notice_title
                         }
 
                     # 세션 추가
