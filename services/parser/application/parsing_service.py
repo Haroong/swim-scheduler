@@ -92,6 +92,7 @@ class ParsingService:
             raw_text=text,
             facility_name=notice.facility_name,
             notice_date=notice.date,
+            notice_title=notice.title,
             source_url=notice.source_url
         )
 

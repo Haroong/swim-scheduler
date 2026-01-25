@@ -137,12 +137,14 @@ def main():
                 logger.info(f"  → LLM 파싱 중... (시설: {facility_name})")
 
                 notice_date = notice.get('date', '')
+                notice_title = notice.get('title', '')
                 valid_month_guess = parse_notice_date(notice_date)
 
                 parsed_result = llm_parser.parse(
                     raw_text=content,
                     facility_name=facility_name,
-                    notice_date=notice_date
+                    notice_date=notice_date,
+                    notice_title=notice_title
                 )
 
                 if not parsed_result:

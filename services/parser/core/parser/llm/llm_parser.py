@@ -45,7 +45,7 @@ class LLMParser:
         except Exception as e:
             logger.error(f"Anthropic 클라이언트 초기화 실패: {e}")
 
-    def parse(self, raw_text: str, facility_name: str = "", notice_date: str = "", source_url: str = "") -> Optional[ParsedScheduleData]:
+    def parse(self, raw_text: str, facility_name: str = "", notice_date: str = "", notice_title: str = "", source_url: str = "") -> Optional[ParsedScheduleData]:
         """
         raw_text에서 자유수영 정보 추출
 
@@ -53,6 +53,7 @@ class LLMParser:
             raw_text: HWP/PDF에서 추출한 원문 텍스트
             facility_name: 시설명 (힌트로 제공)
             notice_date: 공지 등록일 (힌트로 제공)
+            notice_title: 공지사항 제목 (연도/월 추출에 최우선으로 사용)
             source_url: 원본 URL
 
         Returns:
@@ -69,8 +70,11 @@ class LLMParser:
         # 프롬프트 구성
         prompt = EXTRACTION_PROMPT + raw_text[:8000]  # 토큰 제한 고려
 
+        if notice_title:
+            prompt += f"\n\n**중요 힌트 (최우선)**: 공지사항 제목은 '{notice_title}'입니다. valid_month 추출 시 이 제목의 연도와 월을 최우선으로 사용하세요."
+
         if facility_name:
-            prompt += f"\n\n힌트: 시설명은 '{facility_name}'입니다."
+            prompt += f"\n힌트: 시설명은 '{facility_name}'입니다."
 
         if notice_date:
             prompt += f"\n힌트: 이 공지는 '{notice_date}'에 등록되었습니다."
@@ -134,7 +138,7 @@ class LLMParser:
         여러 항목 일괄 파싱
 
         Args:
-            items: [{"raw_text": str, "facility_name": str, "source_url": str}, ...]
+            items: [{"raw_text": str, "facility_name": str, "notice_title": str, "source_url": str}, ...]
 
         Returns:
             ParsedScheduleData 리스트
@@ -149,6 +153,7 @@ class LLMParser:
                 raw_text=item.get("raw_text", ""),
                 facility_name=item.get("facility_name", ""),
                 notice_date=item.get("notice_date", ""),
+                notice_title=item.get("notice_title", ""),
                 source_url=item.get("source_url", "")
             )
 
