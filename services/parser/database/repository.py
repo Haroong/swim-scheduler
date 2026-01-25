@@ -66,8 +66,8 @@ class SwimRepository:
                 return False
 
             valid_date = self._convert_valid_month(data.get("valid_month", ""))
-            notes = data.get("notes", [])
-            notice_id = self._save_notice(cursor, facility_id, source_url, valid_date, notes)
+            title = data.get("source_notice_title", "")
+            notice_id = self._save_notice(cursor, facility_id, source_url, valid_date, title)
 
             # 3. schedule + session 저장
             schedules = data.get("schedules", [])
@@ -142,13 +142,12 @@ class SwimRepository:
             return set()
 
     def _save_notice(self, cursor, facility_id: int, source_url: str,
-                     valid_date: str, notes: List[str]) -> int:
+                     valid_date: str, title: str) -> int:
         """공지 저장"""
-        notes_json = json.dumps(notes, ensure_ascii=False) if notes else None
         cursor.execute(
-            """INSERT INTO notice (facility_id, source_url, valid_date, notes)
+            """INSERT INTO notice (facility_id, source_url, valid_date, title)
                VALUES (%s, %s, %s, %s)""",
-            (facility_id, source_url, valid_date, notes_json)
+            (facility_id, source_url, valid_date, title)
         )
         return cursor.lastrowid
 
