@@ -154,7 +154,7 @@ class SwimCrawlerService:
 
         # 신규 공지만 필터링 (DB 중복 확인)
         if skip_existing:
-            from database.repository import SwimRepository
+            from infrastructure.database.repository import SwimRepository
             repo = SwimRepository()
             existing_urls = repo.get_existing_notice_urls()
             repo.close()
