@@ -88,14 +88,17 @@ class ParsingService:
         logger.info("콘텐츠 검증 통과")
 
         # 4. LLM 파싱
-        result = self.llm_parser.parse(
+        parsed_data = self.llm_parser.parse(
             raw_text=text,
             facility_name=notice.facility_name,
             notice_date=notice.date,
             source_url=notice.source_url
         )
 
-        if result:
+        if parsed_data:
+            # ParsedScheduleData 객체를 딕셔너리로 변환
+            result = parsed_data.to_dict()
+
             # LLM이 시설명을 추출하지 못한 경우, 크롤링 시 수집한 시설명 사용
             if not result.get("facility_name") and notice.facility_name:
                 result["facility_name"] = notice.facility_name
@@ -106,10 +109,10 @@ class ParsingService:
             result["source_notice_title"] = notice.title
             result["source_notice_date"] = notice.date
             logger.info(f"파싱 성공: {notice.title}")
+            return result
         else:
             logger.warning(f"LLM 파싱 실패: {notice.title}")
-
-        return result
+            return None
 
     def parse_batch(self, notices: List[PostDetail]) -> List[Dict]:
         """

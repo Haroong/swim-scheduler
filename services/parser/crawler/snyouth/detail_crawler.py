@@ -236,7 +236,7 @@ class DetailCrawler(BaseDetailCrawler):
                 return match.group(1)
         return ""
 
-    def get_hwp_attachments(self, detail_url: str) -> List[AttachmentInfo]:
+    def get_hwp_attachments(self, detail_url: str) -> List[Attachment]:
         """HWP 첨부파일만 추출"""
         detail = self.get_detail(detail_url)
         if not detail:
