@@ -85,6 +85,50 @@ def _crawl_monthly_notices_with_keywords(
     return all_notices
 
 
+def _validate_parsed_results(parsed_results: list) -> tuple[list, int]:
+    """
+    파싱 결과의 valid_month 검증
+
+    Args:
+        parsed_results: 파싱된 결과 리스트
+
+    Returns:
+        (validated_results, invalid_count) 튜플
+    """
+    validated_results = []
+    invalid_count = 0
+
+    for result in parsed_results:
+        notice_date = result.get("source_notice_date", "")
+        valid_month = result.get("valid_month", "")
+
+        if validate_valid_month(valid_month, notice_date):
+            validated_results.append(result)
+        else:
+            invalid_count += 1
+            logger.warning(
+                f"invalid valid_month 제외: {result.get('facility_name', 'Unknown')} - "
+                f"{valid_month} (등록일: {notice_date})"
+            )
+
+    logger.info(f"검증 완료: {len(validated_results)}개 (검증 실패: {invalid_count}개)")
+    return validated_results, invalid_count
+
+
+def _save_validated_results(validated_results: list) -> None:
+    """
+    검증된 파싱 결과를 JSON 파일로 저장
+
+    Args:
+        validated_results: 검증된 결과 리스트
+    """
+    if validated_results:
+        validated_path = STORAGE_DIR / "validated_parsed_data.json"
+        with open(validated_path, "w", encoding="utf-8") as f:
+            json.dump(validated_results, f, ensure_ascii=False, indent=2)
+        logger.info(f"검증된 데이터 저장: {validated_path}")
+
+
 def crawl(keyword: str = "수영", max_pages: int = 3):
     """1단계: 크롤링"""
     logger.info("=== 1단계: 크롤링 시작 ===")
@@ -132,31 +176,9 @@ def parse(monthly_notices=None):
 
     logger.info(f"전체 파싱 완료: {len(parsed_results)}개")
 
-    # valid_month 검증
-    validated_results = []
-    invalid_count = 0
-
-    for result in parsed_results:
-        notice_date = result.get("source_notice_date", "")
-        valid_month = result.get("valid_month", "")
-
-        if validate_valid_month(valid_month, notice_date):
-            validated_results.append(result)
-        else:
-            invalid_count += 1
-            logger.warning(
-                f"invalid valid_month 제외: {result.get('facility_name', 'Unknown')} - "
-                f"{valid_month} (등록일: {notice_date})"
-            )
-
-    logger.info(f"검증 완료: {len(validated_results)}개 (검증 실패: {invalid_count}개)")
-
-    # 검증된 결과 저장
-    if validated_results:
-        validated_path = STORAGE_DIR / "validated_parsed_data.json"
-        with open(validated_path, "w", encoding="utf-8") as f:
-            json.dump(validated_results, f, ensure_ascii=False, indent=2)
-        logger.info(f"검증된 데이터 저장: {validated_path}")
+    # valid_month 검증 및 저장
+    validated_results, _ = _validate_parsed_results(parsed_results)
+    _save_validated_results(validated_results)
 
     logger.info("=== 파싱 완료 ===")
     return validated_results
