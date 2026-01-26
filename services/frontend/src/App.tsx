@@ -13,13 +13,13 @@ function Navigation() {
         to="/"
         className={location.pathname === '/' ? 'nav-link active' : 'nav-link'}
       >
-        월별 스케줄
+        일별 스케줄
       </Link>
       <Link
-        to="/daily"
-        className={location.pathname === '/daily' ? 'nav-link active' : 'nav-link'}
+        to="/monthly"
+        className={location.pathname === '/monthly' ? 'nav-link active' : 'nav-link'}
       >
-        일별 스케줄
+        월별 스케줄
       </Link>
       <Link
         to="/calendar"
@@ -41,8 +41,8 @@ function App() {
         </header>
         <main className="main">
           <Routes>
-            <Route path="/" element={<ScheduleCalendar />} />
-            <Route path="/daily" element={<DailySchedule />} />
+            <Route path="/" element={<DailySchedule />} />
+            <Route path="/monthly" element={<ScheduleCalendar />} />
             <Route path="/calendar" element={<CalendarView />} />
           </Routes>
         </main>
