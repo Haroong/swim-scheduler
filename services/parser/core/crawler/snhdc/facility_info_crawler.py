@@ -132,25 +132,60 @@ class FacilityInfoCrawler(BaseFacilityCrawler):
 
         rows = tbody.find_all('tr')
 
+        # rowspan 처리를 위한 임시 저장 변수
+        last_day_text = ""
+        last_capacity_text = ""
+        last_fee_text = ""
+
         for row in rows:
             cols = row.find_all('td')
-            if len(cols) < 3:  # 최소 3개 컬럼 필요 (rowspan 때문에 5개 미만일 수 있음)
+            if len(cols) < 2:  # 최소 2개 컬럼 필요
                 continue
 
             # rowspan으로 인해 컬럼 수가 다를 수 있음
+            # 6개 컬럼: 대상(0), 회차(1), 시간(2), 요일(3), 정원(4), 이용료(5) - 성남종합운동장
             # 5개 컬럼: 대상(0), 시간(1), 요일(2), 정원(3), 이용료(4)
             # 3개 컬럼: 시간(0), 요일(1), 정원(2) - rowspan으로 대상/이용료 생략
-            if len(cols) >= 5:
-                time_text = cols[1].get_text(strip=True)
-                day_text = cols[2].get_text(strip=True)
-                capacity_text = cols[3].get_text(strip=True)
-                fee_text = cols[4].get_text(strip=True)
+            # 2개 컬럼: 회차(0), 시간(1) - rowspan으로 대상/요일/정원/이용료 생략 (성남종합운동장)
+
+            # 시간이 있는 컬럼 찾기
+            time_text = ""
+            day_text = ""
+            capacity_text = ""
+            fee_text = ""
+
+            for i, col in enumerate(cols):
+                text = col.get_text(strip=True)
+                if re.search(r'\d{2}:\d{2}~\d{2}:\d{2}', text):
+                    # 시간 컬럼 발견
+                    time_text = text
+
+                    # 시간 다음 컬럼이 요일
+                    if i + 1 < len(cols):
+                        day_text = cols[i + 1].get_text(strip=True)
+                    # 그 다음이 정원
+                    if i + 2 < len(cols):
+                        capacity_text = cols[i + 2].get_text(strip=True)
+                    # 그 다음이 이용료
+                    if i + 3 < len(cols):
+                        fee_text = cols[i + 3].get_text(strip=True)
+                    break
+
+            # rowspan으로 요일/정원/이용료가 없으면 이전 값 사용
+            if day_text:
+                last_day_text = day_text
             else:
-                # rowspan으로 대상/이용료 생략된 경우
-                time_text = cols[0].get_text(strip=True)
-                day_text = cols[1].get_text(strip=True)
-                capacity_text = cols[2].get_text(strip=True)
-                fee_text = ""
+                day_text = last_day_text
+
+            if capacity_text:
+                last_capacity_text = capacity_text
+            else:
+                capacity_text = last_capacity_text
+
+            if fee_text:
+                last_fee_text = fee_text
+            else:
+                fee_text = last_fee_text
 
             # 시간 파싱 (예: "12:00~13:50")
             time_match = re.search(r'(\d{2}:\d{2})~(\d{2}:\d{2})', time_text)
@@ -215,19 +250,22 @@ class FacilityInfoCrawler(BaseFacilityCrawler):
         """이용료 텍스트 파싱"""
         fees = {}
 
+        # 개행 문자와 공백 정리
+        text = text.replace('\n', ' ').replace('\r', ' ')
+
         # "일반 3,600원청소년  3,000원어린이  2,400원2시간 기준" 형식
-        # 일반 추출
-        general_match = re.search(r'일반[^\d]*(\d{1,},?\d{0,3})원', text)
+        # 일반 추출 (더 관대한 패턴 - 일반, 일  반 등)
+        general_match = re.search(r'일\s*반[^\d]*?(\d{1,},?\d{0,3})원', text)
         if general_match:
             fees["일반"] = int(general_match.group(1).replace(',', ''))
 
         # 청소년 추출
-        youth_match = re.search(r'청소년[^\d]*(\d{1,},?\d{0,3})원', text)
+        youth_match = re.search(r'청소년[^\d]*?(\d{1,},?\d{0,3})원', text)
         if youth_match:
             fees["청소년"] = int(youth_match.group(1).replace(',', ''))
 
         # 어린이 추출
-        child_match = re.search(r'어린이[^\d]*(\d{1,},?\d{0,3})원', text)
+        child_match = re.search(r'어린이[^\d]*?(\d{1,},?\d{0,3})원', text)
         if child_match:
             fees["어린이"] = int(child_match.group(1).replace(',', ''))
 

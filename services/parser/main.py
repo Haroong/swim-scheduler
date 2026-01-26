@@ -34,14 +34,33 @@ def crawl(keyword: str = "수영", max_pages: int = 3):
     total_facilities = len(base_schedules.get("snyouth", [])) + len(base_schedules.get("snhdc", []))
     logger.info(f"기본 스케줄 완료: {total_facilities}개 시설")
 
-    # 월별 공지사항 크롤링
+    # 월별 공지사항 크롤링 (여러 키워드로 검색)
     logger.info("월별 공지사항 크롤링...")
-    monthly_notices = service.crawl_monthly_notices(keyword=keyword, max_pages=max_pages, save=True)
-    total_notices = len(monthly_notices.get("snyouth", [])) + len(monthly_notices.get("snhdc", []))
-    logger.info(f"월별 공지사항 완료: {total_notices}개")
+
+    # 키워드 목록 (수영 + 일일자유)
+    keywords = [keyword, "일일자유"] if keyword != "일일자유" else [keyword]
+    all_notices = {"snyouth": [], "snhdc": []}
+
+    for kw in keywords:
+        logger.info(f"키워드 '{kw}' 검색 중...")
+        monthly_notices = service.crawl_monthly_notices(keyword=kw, max_pages=max_pages, save=False)
+
+        # 중복 제거하면서 병합
+        for org_key in ["snyouth", "snhdc"]:
+            existing_urls = {n.get("source_url") for n in all_notices[org_key]}
+            new_notices = [n for n in monthly_notices.get(org_key, []) if n.get("source_url") not in existing_urls]
+            all_notices[org_key].extend(new_notices)
+            logger.info(f"  {org_key}: {len(new_notices)}개 신규 공지")
+
+    # 병합된 결과 저장
+    service.storage.save_monthly_notices("snyouth", all_notices["snyouth"])
+    service.storage.save_monthly_notices("snhdc", all_notices["snhdc"])
+
+    total_notices = len(all_notices.get("snyouth", [])) + len(all_notices.get("snhdc", []))
+    logger.info(f"월별 공지사항 완료: {total_notices}개 (중복 제거 후)")
 
     logger.info("=== 크롤링 완료 ===")
-    return monthly_notices
+    return all_notices
 
 
 def parse(monthly_notices=None):
