@@ -22,6 +22,69 @@ logger = get_logger(__name__)
 STORAGE_DIR = settings.STORAGE_DIR
 
 
+def _get_search_keywords(primary_keyword: str) -> list[str]:
+    """
+    검색 키워드 목록 생성
+
+    Args:
+        primary_keyword: 주 검색 키워드
+
+    Returns:
+        검색할 키워드 목록 (중복 제거)
+    """
+    if primary_keyword == "일일자유":
+        return [primary_keyword]
+    return [primary_keyword, "일일자유"]
+
+
+def _merge_notices_without_duplicates(all_notices: dict, new_notices: dict, org_key: str) -> int:
+    """
+    중복 제거하면서 공지사항 병합
+
+    Args:
+        all_notices: 기존 공지사항 딕셔너리 (수정됨)
+        new_notices: 새로운 공지사항 딕셔너리
+        org_key: 기관 키 (snyouth, snhdc)
+
+    Returns:
+        추가된 공지사항 개수
+    """
+    existing_urls = {n.get("source_url") for n in all_notices[org_key]}
+    new_items = [n for n in new_notices.get(org_key, []) if n.get("source_url") not in existing_urls]
+    all_notices[org_key].extend(new_items)
+    return len(new_items)
+
+
+def _crawl_monthly_notices_with_keywords(
+    service: SwimCrawlerService,
+    keywords: list[str],
+    max_pages: int
+) -> dict:
+    """
+    여러 키워드로 공지사항 크롤링 및 병합
+
+    Args:
+        service: SwimCrawlerService 인스턴스
+        keywords: 검색 키워드 목록
+        max_pages: 키워드당 최대 페이지 수
+
+    Returns:
+        {"snyouth": [...], "snhdc": [...]} 형태의 병합된 공지사항
+    """
+    all_notices = {"snyouth": [], "snhdc": []}
+
+    for keyword in keywords:
+        logger.info(f"키워드 '{keyword}' 검색 중...")
+        monthly_notices = service.crawl_monthly_notices(keyword=keyword, max_pages=max_pages, save=False)
+
+        # 중복 제거하면서 병합
+        for org_key in ["snyouth", "snhdc"]:
+            new_count = _merge_notices_without_duplicates(all_notices, monthly_notices, org_key)
+            logger.info(f"  {org_key}: {new_count}개 신규 공지")
+
+    return all_notices
+
+
 def crawl(keyword: str = "수영", max_pages: int = 3):
     """1단계: 크롤링"""
     logger.info("=== 1단계: 크롤링 시작 ===")
@@ -36,21 +99,8 @@ def crawl(keyword: str = "수영", max_pages: int = 3):
 
     # 월별 공지사항 크롤링 (여러 키워드로 검색)
     logger.info("월별 공지사항 크롤링...")
-
-    # 키워드 목록 (수영 + 일일자유)
-    keywords = [keyword, "일일자유"] if keyword != "일일자유" else [keyword]
-    all_notices = {"snyouth": [], "snhdc": []}
-
-    for kw in keywords:
-        logger.info(f"키워드 '{kw}' 검색 중...")
-        monthly_notices = service.crawl_monthly_notices(keyword=kw, max_pages=max_pages, save=False)
-
-        # 중복 제거하면서 병합
-        for org_key in ["snyouth", "snhdc"]:
-            existing_urls = {n.get("source_url") for n in all_notices[org_key]}
-            new_notices = [n for n in monthly_notices.get(org_key, []) if n.get("source_url") not in existing_urls]
-            all_notices[org_key].extend(new_notices)
-            logger.info(f"  {org_key}: {len(new_notices)}개 신규 공지")
+    keywords = _get_search_keywords(keyword)
+    all_notices = _crawl_monthly_notices_with_keywords(service, keywords, max_pages)
 
     # 병합된 결과 저장
     service.storage.save_monthly_notices("snyouth", all_notices["snyouth"])
