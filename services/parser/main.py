@@ -17,9 +17,13 @@ from infrastructure.config.logging_config import get_logger
 from application.swim_crawler_service import SwimCrawlerService
 from infrastructure.database.repository import SwimRepository
 from core.parser.validators.date_validator import validate_valid_month
+from core.models.facility import Organization
 
 logger = get_logger(__name__)
 STORAGE_DIR = settings.STORAGE_DIR
+
+# 모든 기관 목록
+ALL_ORGANIZATIONS = list(Organization)
 
 
 def _get_search_keywords(primary_keyword: str) -> list[str]:
@@ -71,16 +75,16 @@ def _crawl_monthly_notices_with_keywords(
     Returns:
         {"snyouth": [...], "snhdc": [...]} 형태의 병합된 공지사항
     """
-    all_notices = {"snyouth": [], "snhdc": []}
+    all_notices = {org.value: [] for org in ALL_ORGANIZATIONS}
 
     for keyword in keywords:
         logger.info(f"키워드 '{keyword}' 검색 중...")
         monthly_notices = service.crawl_monthly_notices(keyword=keyword, max_pages=max_pages, save=False)
 
         # 중복 제거하면서 병합
-        for org_key in ["snyouth", "snhdc"]:
-            new_count = _merge_notices_without_duplicates(all_notices, monthly_notices, org_key)
-            logger.info(f"  {org_key}: {new_count}개 신규 공지")
+        for org in ALL_ORGANIZATIONS:
+            new_count = _merge_notices_without_duplicates(all_notices, monthly_notices, org.value)
+            logger.info(f"  {org.value}: {new_count}개 신규 공지")
 
     return all_notices
 
@@ -138,7 +142,7 @@ def crawl(keyword: str = "수영", max_pages: int = 3):
     # 기본 스케줄 크롤링
     logger.info("기본 스케줄 크롤링...")
     base_schedules = service.crawl_base_schedules(save=True)
-    total_facilities = len(base_schedules.get("snyouth", [])) + len(base_schedules.get("snhdc", []))
+    total_facilities = sum(len(facilities) for facilities in base_schedules.values())
     logger.info(f"기본 스케줄 완료: {total_facilities}개 시설")
 
     # 월별 공지사항 크롤링 (여러 키워드로 검색)
@@ -147,10 +151,10 @@ def crawl(keyword: str = "수영", max_pages: int = 3):
     all_notices = _crawl_monthly_notices_with_keywords(service, keywords, max_pages)
 
     # 병합된 결과 저장
-    service.storage.save_monthly_notices("snyouth", all_notices["snyouth"])
-    service.storage.save_monthly_notices("snhdc", all_notices["snhdc"])
+    for org in ALL_ORGANIZATIONS:
+        service.storage.save_monthly_notices(org, all_notices[org.value])
 
-    total_notices = len(all_notices.get("snyouth", [])) + len(all_notices.get("snhdc", []))
+    total_notices = sum(len(notices) for notices in all_notices.values())
     logger.info(f"월별 공지사항 완료: {total_notices}개 (중복 제거 후)")
 
     logger.info("=== 크롤링 완료 ===")
@@ -165,14 +169,14 @@ def parse(monthly_notices=None):
 
     # 양쪽 기관 모두 처리
     parsed_results = []
-    for org_key in ["snhdc", "snyouth"]:
+    for org in ALL_ORGANIZATIONS:
         org_results = service.parse_attachments(
-            org_key=org_key,
+            org=org,
             monthly_notices=monthly_notices,
             save=True
         )
         parsed_results.extend(org_results)
-        logger.info(f"{org_key.upper()} 파싱 완료: {len(org_results)}개")
+        logger.info(f"{org.name} 파싱 완료: {len(org_results)}개")
 
     logger.info(f"전체 파싱 완료: {len(parsed_results)}개")
 

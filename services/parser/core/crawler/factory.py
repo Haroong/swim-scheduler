@@ -10,6 +10,7 @@ import logging
 from core.crawler.base.list_crawler import BaseListCrawler
 from core.crawler.base.detail_crawler import BaseDetailCrawler
 from core.crawler.base.facility_crawler import BaseFacilityCrawler
+from core.models.facility import Organization
 
 logger = logging.getLogger(__name__)
 
@@ -38,13 +39,13 @@ class CrawlerFactory:
     """
 
     # 등록된 크롤러 저장소
-    # {org_key: {"list": ListCrawlerClass, "detail": DetailCrawlerClass, "facility": FacilityCrawlerClass}}
+    # {org.value: {"list": ListCrawlerClass, "detail": DetailCrawlerClass, "facility": FacilityCrawlerClass}}
     _crawlers: Dict[str, Dict[str, Type]] = {}
 
     @classmethod
     def register(
         cls,
-        org_key: str,
+        org: Organization,
         list_crawler_cls: Type[BaseListCrawler],
         detail_crawler_cls: Type[BaseDetailCrawler],
         facility_crawler_cls: Type[BaseFacilityCrawler]
@@ -53,7 +54,7 @@ class CrawlerFactory:
         크롤러 등록
 
         Args:
-            org_key: 기관 키 (예: "snhdc", "snyouth")
+            org: 기관 (Organization enum)
             list_crawler_cls: ListCrawler 클래스
             detail_crawler_cls: DetailCrawler 클래스
             facility_crawler_cls: FacilityCrawler 클래스
@@ -64,7 +65,7 @@ class CrawlerFactory:
             >>> from crawler.snhdc.facility_crawler import SnhdcFacilityCrawler
             >>>
             >>> CrawlerFactory.register(
-            ...     "snhdc",
+            ...     Organization.SNHDC,
             ...     SnhdcListCrawler,
             ...     SnhdcDetailCrawler,
             ...     SnhdcFacilityCrawler
@@ -80,21 +81,21 @@ class CrawlerFactory:
         if not issubclass(facility_crawler_cls, BaseFacilityCrawler):
             raise TypeError(f"{facility_crawler_cls}는 BaseFacilityCrawler를 상속해야 합니다")
 
-        cls._crawlers[org_key] = {
+        cls._crawlers[org.value] = {
             "list": list_crawler_cls,
             "detail": detail_crawler_cls,
             "facility": facility_crawler_cls
         }
 
-        logger.info(f"Crawler 등록 완료: {org_key}")
+        logger.info(f"Crawler 등록 완료: {org.value}")
 
     @classmethod
-    def create(cls, org_key: str) -> Tuple[BaseListCrawler, BaseDetailCrawler, BaseFacilityCrawler]:
+    def create(cls, org: Organization) -> Tuple[BaseListCrawler, BaseDetailCrawler, BaseFacilityCrawler]:
         """
         크롤러 인스턴스 생성
 
         Args:
-            org_key: 기관 키 (예: "snhdc", "snyouth")
+            org: 기관 (Organization enum)
 
         Returns:
             (ListCrawler, DetailCrawler, FacilityCrawler) 튜플
@@ -103,15 +104,15 @@ class CrawlerFactory:
             ValueError: 등록되지 않은 기관인 경우
 
         Example:
-            >>> list_crawler, detail_crawler, facility_crawler = CrawlerFactory.create("snhdc")
+            >>> list_crawler, detail_crawler, facility_crawler = CrawlerFactory.create(Organization.SNHDC)
         """
-        if org_key not in cls._crawlers:
+        if org.value not in cls._crawlers:
             raise ValueError(
-                f"등록되지 않은 기관: {org_key}. "
+                f"등록되지 않은 기관: {org.value}. "
                 f"지원하는 기관: {', '.join(cls.get_supported_orgs())}"
             )
 
-        crawlers = cls._crawlers[org_key]
+        crawlers = cls._crawlers[org.value]
 
         return (
             crawlers["list"](),
@@ -120,25 +121,25 @@ class CrawlerFactory:
         )
 
     @classmethod
-    def create_list_crawler(cls, org_key: str) -> BaseListCrawler:
+    def create_list_crawler(cls, org: Organization) -> BaseListCrawler:
         """ListCrawler만 생성"""
-        if org_key not in cls._crawlers:
-            raise ValueError(f"등록되지 않은 기관: {org_key}")
-        return cls._crawlers[org_key]["list"]()
+        if org.value not in cls._crawlers:
+            raise ValueError(f"등록되지 않은 기관: {org.value}")
+        return cls._crawlers[org.value]["list"]()
 
     @classmethod
-    def create_detail_crawler(cls, org_key: str) -> BaseDetailCrawler:
+    def create_detail_crawler(cls, org: Organization) -> BaseDetailCrawler:
         """DetailCrawler만 생성"""
-        if org_key not in cls._crawlers:
-            raise ValueError(f"등록되지 않은 기관: {org_key}")
-        return cls._crawlers[org_key]["detail"]()
+        if org.value not in cls._crawlers:
+            raise ValueError(f"등록되지 않은 기관: {org.value}")
+        return cls._crawlers[org.value]["detail"]()
 
     @classmethod
-    def create_facility_crawler(cls, org_key: str) -> BaseFacilityCrawler:
+    def create_facility_crawler(cls, org: Organization) -> BaseFacilityCrawler:
         """FacilityCrawler만 생성"""
-        if org_key not in cls._crawlers:
-            raise ValueError(f"등록되지 않은 기관: {org_key}")
-        return cls._crawlers[org_key]["facility"]()
+        if org.value not in cls._crawlers:
+            raise ValueError(f"등록되지 않은 기관: {org.value}")
+        return cls._crawlers[org.value]["facility"]()
 
     @classmethod
     def get_supported_orgs(cls) -> List[str]:
@@ -151,17 +152,17 @@ class CrawlerFactory:
         return list(cls._crawlers.keys())
 
     @classmethod
-    def is_registered(cls, org_key: str) -> bool:
+    def is_registered(cls, org: Organization) -> bool:
         """
         기관 등록 여부 확인
 
         Args:
-            org_key: 기관 키
+            org: 기관 (Organization enum)
 
         Returns:
             등록 여부
         """
-        return org_key in cls._crawlers
+        return org.value in cls._crawlers
 
     @classmethod
     def clear(cls):
@@ -182,10 +183,10 @@ from core.crawler.snyouth.detail_crawler import DetailCrawler as SnyouthDetailCr
 from core.crawler.snyouth.facility_info_crawler import FacilityInfoCrawler as SnyouthFacilityCrawler
 
 # SNHDC 등록
-CrawlerFactory.register("snhdc", SnhdcListCrawler, SnhdcDetailCrawler, SnhdcFacilityCrawler)
+CrawlerFactory.register(Organization.SNHDC, SnhdcListCrawler, SnhdcDetailCrawler, SnhdcFacilityCrawler)
 
 # SNYOUTH 등록
-CrawlerFactory.register("snyouth", SnyouthListCrawler, SnyouthDetailCrawler, SnyouthFacilityCrawler)
+CrawlerFactory.register(Organization.SNYOUTH, SnyouthListCrawler, SnyouthDetailCrawler, SnyouthFacilityCrawler)
 
 
 # ===================================================================
@@ -199,7 +200,7 @@ if __name__ == "__main__":
 
     # 사용 예시 1: 전체 크롤러 생성
     print("=== SNHDC 크롤러 생성 ===")
-    list_crawler, detail_crawler, facility_crawler = CrawlerFactory.create("snhdc")
+    list_crawler, detail_crawler, facility_crawler = CrawlerFactory.create(Organization.SNHDC)
     print(f"ListCrawler: {list_crawler.__class__.__name__}")
     print(f"DetailCrawler: {detail_crawler.__class__.__name__}")
     print(f"FacilityCrawler: {facility_crawler.__class__.__name__}")
@@ -207,7 +208,7 @@ if __name__ == "__main__":
 
     # 사용 예시 2: 개별 크롤러 생성
     print("=== SNYOUTH ListCrawler만 생성 ===")
-    snyouth_list = CrawlerFactory.create_list_crawler("snyouth")
+    snyouth_list = CrawlerFactory.create_list_crawler(Organization.SNYOUTH)
     print(f"ListCrawler: {snyouth_list.__class__.__name__}")
     print()
 

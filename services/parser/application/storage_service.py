@@ -9,6 +9,8 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict
 
+from core.models.facility import Organization
+
 logger = logging.getLogger(__name__)
 
 
@@ -23,21 +25,21 @@ class StorageService:
         self.storage_dir = storage_dir
         self.storage_dir.mkdir(parents=True, exist_ok=True)
 
-    def save_base_schedules(self, org_key: str, facilities: List[dict]):
+    def save_base_schedules(self, org: Organization, facilities: List[dict]):
         """
         기본 스케줄 저장
 
         Args:
-            org_key: 기관 키 (snhdc, snyouth)
+            org: 기관 (Organization enum)
             facilities: 시설 기본 정보 리스트
         """
-        filename = f"{org_key}_base_schedules.json"
+        filename = f"{org.value}_base_schedules.json"
         filepath = self.storage_dir / filename
 
         data = {
             "meta": {
                 "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "organization": org_key,
+                "organization": org.value,
                 "facility_count": len(facilities)
             },
             "facilities": facilities
@@ -48,21 +50,21 @@ class StorageService:
 
         logger.info(f"기본 스케줄 저장 완료: {filepath}")
 
-    def save_monthly_notices(self, org_key: str, notices: List[dict]):
+    def save_monthly_notices(self, org: Organization, notices: List[dict]):
         """
         월별 공지사항 저장
 
         Args:
-            org_key: 기관 키 (snhdc, snyouth)
+            org: 기관 (Organization enum)
             notices: 게시글 상세 정보 리스트
         """
-        filename = f"{org_key}_monthly_notices.json"
+        filename = f"{org.value}_monthly_notices.json"
         filepath = self.storage_dir / filename
 
         data = {
             "meta": {
                 "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "organization": org_key,
+                "organization": org.value,
                 "notice_count": len(notices)
             },
             "notices": notices
@@ -73,21 +75,21 @@ class StorageService:
 
         logger.info(f"월별 공지사항 저장 완료: {filepath}")
 
-    def save_parsed_schedules(self, org_key: str, parsed_data: List[Dict]):
+    def save_parsed_schedules(self, org: Organization, parsed_data: List[Dict]):
         """
         파싱된 스케줄 데이터 저장
 
         Args:
-            org_key: 기관 키 (snhdc, snyouth)
+            org: 기관 (Organization enum)
             parsed_data: 파싱된 스케줄 데이터 리스트
         """
-        filename = f"{org_key}_parsed_schedules.json"
+        filename = f"{org.value}_parsed_schedules.json"
         filepath = self.storage_dir / filename
 
         data = {
             "meta": {
                 "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "organization": org_key,
+                "organization": org.value,
                 "parsed_count": len(parsed_data)
             },
             "parsed_schedules": parsed_data
@@ -112,17 +114,17 @@ class StorageService:
 
         logger.info(f"병합 결과 저장 완료: {filepath}")
 
-    def load_base_schedules(self, org_key: str) -> List[dict]:
+    def load_base_schedules(self, org: Organization) -> List[dict]:
         """
         기본 스케줄 로드
 
         Args:
-            org_key: 기관 키 (snhdc, snyouth)
+            org: 기관 (Organization enum)
 
         Returns:
             시설 기본 정보 리스트
         """
-        filename = f"{org_key}_base_schedules.json"
+        filename = f"{org.value}_base_schedules.json"
         filepath = self.storage_dir / filename
 
         if not filepath.exists():
@@ -133,17 +135,17 @@ class StorageService:
             data = json.load(f)
             return data.get("facilities", [])
 
-    def load_monthly_notices(self, org_key: str) -> List[dict]:
+    def load_monthly_notices(self, org: Organization) -> List[dict]:
         """
         월별 공지사항 로드
 
         Args:
-            org_key: 기관 키 (snhdc, snyouth)
+            org: 기관 (Organization enum)
 
         Returns:
             게시글 상세 정보 리스트
         """
-        filename = f"{org_key}_monthly_notices.json"
+        filename = f"{org.value}_monthly_notices.json"
         filepath = self.storage_dir / filename
 
         if not filepath.exists():
@@ -154,17 +156,17 @@ class StorageService:
             data = json.load(f)
             return data.get("notices", [])
 
-    def load_parsed_schedules(self, org_key: str) -> List[Dict]:
+    def load_parsed_schedules(self, org: Organization) -> List[Dict]:
         """
         파싱된 스케줄 데이터 로드
 
         Args:
-            org_key: 기관 키 (snhdc, snyouth)
+            org: 기관 (Organization enum)
 
         Returns:
             파싱된 스케줄 데이터 리스트
         """
-        filename = f"{org_key}_parsed_schedules.json"
+        filename = f"{org.value}_parsed_schedules.json"
         filepath = self.storage_dir / filename
 
         if not filepath.exists():

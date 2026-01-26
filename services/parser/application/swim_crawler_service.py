@@ -22,6 +22,7 @@ from .crawling_service import CrawlingService
 from .parsing_service import ParsingService
 from .storage_service import StorageService
 from core.models.crawler import PostDetail
+from core.models.facility import Organization
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -52,15 +53,15 @@ class SwimCrawlerService:
         all_facilities = {}
 
         # 각 기관별 크롤링
-        for org_key in ["snyouth", "snhdc"]:
-            crawling_service = CrawlingService(org_key)
+        for org in Organization:
+            crawling_service = CrawlingService(org)
             facilities = crawling_service.crawl_base_schedules()
-            all_facilities[org_key] = facilities
+            all_facilities[org.value] = facilities
 
             if save:
-                self.storage.save_base_schedules(org_key, facilities)
+                self.storage.save_base_schedules(org, facilities)
 
-        total = len(all_facilities["snyouth"]) + len(all_facilities["snhdc"])
+        total = sum(len(facilities) for facilities in all_facilities.values())
         logger.info(f"기본 스케줄 크롤링 완료: 총 {total}개 시설")
         return all_facilities
 
@@ -82,17 +83,17 @@ class SwimCrawlerService:
         all_notices = {}
 
         # 각 기관별 크롤링
-        for org_key in ["snyouth", "snhdc"]:
-            crawling_service = CrawlingService(org_key)
+        for org in Organization:
+            crawling_service = CrawlingService(org)
             details: List[PostDetail] = crawling_service.crawl_monthly_notices(keyword, max_pages)
 
             # PostDetail을 dict로 변환
-            all_notices[org_key] = [self._post_detail_to_dict(d) for d in details]
+            all_notices[org.value] = [self._post_detail_to_dict(d) for d in details]
 
             if save:
-                self.storage.save_monthly_notices(org_key, all_notices[org_key])
+                self.storage.save_monthly_notices(org, all_notices[org.value])
 
-        total = len(all_notices["snyouth"]) + len(all_notices["snhdc"])
+        total = sum(len(notices) for notices in all_notices.values())
         logger.info(f"월별 공지사항 크롤링 완료: 총 {total}개")
         return all_notices
 
@@ -121,13 +122,13 @@ class SwimCrawlerService:
             "file_pdf": next((att.filename for att in detail.attachments if att.file_ext == "pdf"), None)
         }
 
-    def parse_attachments(self, org_key: str, monthly_notices: Optional[Dict[str, List[Dict]]] = None,
+    def parse_attachments(self, org: Organization, monthly_notices: Optional[Dict[str, List[Dict]]] = None,
                           save: bool = True, skip_existing: bool = True) -> List[Dict]:
         """
         기관별 첨부파일 다운로드 및 파싱 (snhdc, snyouth 모두 지원)
 
         Args:
-            org_key: 기관 키 ("snhdc" 또는 "snyouth")
+            org: 기관 (Organization enum)
             monthly_notices: 월별 공지사항 (없으면 파일에서 로드)
             save: 파싱 결과 저장 여부
             skip_existing: 이미 DB에 있는 공지 건너뛰기 (True: 신규만 처리, False: 모두 처리)
@@ -135,14 +136,14 @@ class SwimCrawlerService:
         Returns:
             파싱된 결과 리스트
         """
-        org_name = "SNHDC" if org_key == "snhdc" else "SNYOUTH"
+        org_name = org.name
         logger.info(f"=== {org_name} 첨부파일 파싱 시작 ===")
 
         # 데이터 로드
         if monthly_notices is None:
-            notices = self.storage.load_monthly_notices(org_key)
+            notices = self.storage.load_monthly_notices(org)
         else:
-            notices = monthly_notices.get(org_key, [])
+            notices = monthly_notices.get(org.value, [])
 
         # 첨부파일이 있는 공지만 필터링
         notices_with_files = [n for n in notices if n.get("has_attachment")]
@@ -178,7 +179,7 @@ class SwimCrawlerService:
             logger.info(f"처리할 공지: {len(notices_to_process)}개")
 
         # ParsingService 사용 (기관별 다운로더 선택)
-        parsing_service = ParsingService(download_dir=DOWNLOAD_DIR / org_key, org_key=org_key)
+        parsing_service = ParsingService(download_dir=DOWNLOAD_DIR / org.value, org_key=org.value)
 
         # Dict를 PostDetail로 변환 후 파싱
         parsed_results = []
@@ -195,7 +196,7 @@ class SwimCrawlerService:
 
         # 결과 저장
         if save and parsed_results:
-            self.storage.save_parsed_schedules(org_key, parsed_results)
+            self.storage.save_parsed_schedules(org, parsed_results)
 
         return parsed_results
 
@@ -211,7 +212,7 @@ class SwimCrawlerService:
         Returns:
             파싱된 결과 리스트
         """
-        return self.parse_attachments("snhdc", monthly_notices, save)
+        return self.parse_attachments(Organization.SNHDC, monthly_notices, save)
 
     @staticmethod
     def _dict_to_post_detail(notice_dict: Dict) -> PostDetail:
@@ -262,58 +263,54 @@ class SwimCrawlerService:
         # 데이터 로드
         if base_schedules is None:
             base_schedules = {}
-            for org_key in ["snyouth", "snhdc"]:
-                facilities = self.storage.load_base_schedules(org_key)
-                base_schedules[org_key] = facilities
+            for org in Organization:
+                facilities = self.storage.load_base_schedules(org)
+                base_schedules[org.value] = facilities
 
         if monthly_notices is None:
             monthly_notices = {}
-            for org_key in ["snyouth", "snhdc"]:
-                notices = self.storage.load_monthly_notices(org_key)
-                monthly_notices[org_key] = notices
+            for org in Organization:
+                notices = self.storage.load_monthly_notices(org)
+                monthly_notices[org.value] = notices
 
-        # 통계
-        snyouth_base_count = len(base_schedules.get("snyouth", []))
-        snhdc_base_count = len(base_schedules.get("snhdc", []))
-        snyouth_notice_count = len(monthly_notices.get("snyouth", []))
-        snhdc_notice_count = len(monthly_notices.get("snhdc", []))
+        # 통계 및 메타 정보 구성
+        org_metadata = {}
+        for org in Organization:
+            org_name_map = {
+                Organization.SNYOUTH: "성남시청소년청년재단",
+                Organization.SNHDC: "성남도시개발공사"
+            }
+            org_metadata[org.value] = {
+                "name": org_name_map[org],
+                "base_schedule_count": len(base_schedules.get(org.value, [])),
+                "monthly_notice_count": len(monthly_notices.get(org.value, []))
+            }
 
         # 시설별로 그룹화
         merged = {
             "meta": {
                 "merged_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "organizations": {
-                    "snyouth": {
-                        "name": "성남시청소년청년재단",
-                        "base_schedule_count": snyouth_base_count,
-                        "monthly_notice_count": snyouth_notice_count
-                    },
-                    "snhdc": {
-                        "name": "성남도시개발공사",
-                        "base_schedule_count": snhdc_base_count,
-                        "monthly_notice_count": snhdc_notice_count
-                    }
-                }
+                "organizations": org_metadata
             },
             "facilities": {}
         }
 
         # 1. 기본 스케줄을 baseline으로 설정 (양쪽 기관 모두)
-        for org_key in ["snyouth", "snhdc"]:
-            org_name = merged["meta"]["organizations"][org_key]["name"]
-            for facility in base_schedules.get(org_key, []):
+        for org in Organization:
+            org_name = org_metadata[org.value]["name"]
+            for facility in base_schedules.get(org.value, []):
                 facility_name = facility.get("facility_name")
                 merged["facilities"][facility_name] = {
                     "organization": org_name,
-                    "org_key": org_key,
+                    "org_key": org.value,
                     "base_schedule": facility,
                     "monthly_updates": [],
                     "current_schedule": facility.copy()  # 현재 적용중인 스케줄
                 }
 
         # 2. 월별 공지사항 추가 (양쪽 기관 모두)
-        for org_key in ["snyouth", "snhdc"]:
-            for notice in monthly_notices.get(org_key, []):
+        for org in Organization:
+            for notice in monthly_notices.get(org.value, []):
                 # 시설명 추출 (다양한 필드명 지원)
                 facility_name = (
                     notice.get("facility_name") or
