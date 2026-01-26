@@ -9,6 +9,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import Facility, SwimSchedule, SwimSession, Notice
+from app.utils import get_season_from_month, should_include_schedule
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,8 @@ class ScheduleService:
     def get_schedules(
         db: Session,
         facility: Optional[str] = None,
-        month: Optional[str] = None
+        month: Optional[str] = None,
+        season: Optional[str] = None
     ) -> List[dict]:
         """
         스케줄 조회
@@ -71,6 +73,7 @@ class ScheduleService:
             db: SQLAlchemy Session
             facility: 시설명 (예: "야탑유스센터")
             month: 월 (예: "2026-01" 또는 "2026-02")
+            season: 계절 필터 (예: "하절기", "동절기") - 제공시 해당 계절만 반환
 
         Returns:
             스케줄 목록
@@ -96,8 +99,41 @@ class ScheduleService:
 
             if month:
                 stmt = stmt.where(SwimSchedule.valid_month == month)
+                # 자동 계절 계산 (season이 명시되지 않은 경우)
+                if not season:
+                    try:
+                        # month에서 월 추출 (YYYY-MM 형식)
+                        month_num = int(month.split('-')[1])
+                        season = get_season_from_month(month_num)
+                        logger.info(f"Auto-calculated season from month {month}: {season}")
+                    except (IndexError, ValueError) as e:
+                        logger.warning(f"Could not parse month '{month}': {e}")
 
             schedules = db.execute(stmt).scalars().all()
+
+            # Season filtering
+            if season:
+                # 명시적으로 season이 제공된 경우
+                logger.info(f"Season filter applied: {season}")
+                schedules = [
+                    schedule for schedule in schedules
+                    if should_include_schedule(schedule.season, season)
+                ]
+            elif not month:
+                # month가 없는 경우, 각 스케줄의 valid_month를 기반으로 계절 필터링
+                logger.info("Auto-filtering each schedule by its month's season")
+                filtered_schedules = []
+                for schedule in schedules:
+                    try:
+                        # valid_month에서 월 추출 (YYYY-MM 형식)
+                        month_num = int(schedule.valid_month.split('-')[1])
+                        schedule_season = get_season_from_month(month_num)
+                        if should_include_schedule(schedule.season, schedule_season):
+                            filtered_schedules.append(schedule)
+                    except (IndexError, ValueError, AttributeError) as e:
+                        logger.warning(f"Could not parse valid_month '{schedule.valid_month}': {e}")
+                        filtered_schedules.append(schedule)  # 파싱 실패시 포함
+                schedules = filtered_schedules
 
             # 데이터 그룹핑 (facility + month 기준)
             schedules_map = {}
@@ -180,11 +216,7 @@ class ScheduleService:
                 day_type = "평일"
 
             # 3. 계절 판단 (월 기준: 3~10월=하절기, 11~2월=동절기)
-            month = date_obj.month
-            if 3 <= month <= 10:
-                season = "하절기"
-            else:
-                season = "동절기"
+            season = get_season_from_month(date_obj.month)
 
             # 4. valid_month 생성 (YYYY-MM 형식)
             valid_month = f"{date_obj.year}-{date_obj.month:02d}"
@@ -207,6 +239,13 @@ class ScheduleService:
             )
 
             schedules = db.execute(stmt).scalars().all()
+
+            # Filter by season
+            schedules = [
+                schedule for schedule in schedules
+                if should_include_schedule(schedule.season, season)
+            ]
+            logger.info(f"Season filter: {season}, {len(schedules)} schedules after filtering")
 
             # 시설별로 데이터 구성
             facilities_map = {}
@@ -269,17 +308,23 @@ class ScheduleService:
         Args:
             db: SQLAlchemy Session
             year: 년도 (예: 2026)
-            month: 월 (예: 1)
+            month: 월 (1-12)
 
         Returns:
-            달력 데이터 (일별 시설 목록)
+            달력 데이터 (해당 월의 계절에 맞는 스케줄만 포함)
         """
-        # DB에 저장된 형식: YYYY-MM
         month_str = f"{year}-{month:02d}"
-        schedules = ScheduleService.get_schedules(db, month=month_str)
+
+        # Calculate season for the requested month
+        season = get_season_from_month(month)
+        logger.info(f"Calendar data: {year}-{month:02d}, Season: {season}")
+
+        # Get schedules with season filter
+        schedules = ScheduleService.get_schedules(db, month=month_str, season=season)
 
         return {
             "year": year,
             "month": month,
+            "season": season,  # 응답에 계절 정보 추가
             "schedules": schedules
         }
