@@ -23,6 +23,7 @@ services:
       retries: 5
 
   # Parser 서비스 (크롤링 및 LLM 파싱)
+  # 매일 00:00(KST)에 자동으로 실행되는 스케줄러
   parser:
     build:
       context: ./services/parser
@@ -35,6 +36,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-swimpass}
       DB_NAME: ${DB_NAME:-swim_scheduler}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      TZ: Asia/Seoul
     volumes:
       - ./services/parser:/app
       - parser_data:/app/data
@@ -43,7 +45,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    # 주기적으로 실행하려면 cron 설정 필요
+    restart: unless-stopped  # 자동 재시작
 
   # API 서비스 (FastAPI)
   api:

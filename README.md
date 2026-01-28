@@ -77,6 +77,7 @@ swim-scheduler/                    # 모노레포 루트
 - Claude API를 통한 LLM 기반 스케줄 데이터 파싱
 - 날짜 검증을 통한 데이터 품질 보장
 - MariaDB에 구조화된 데이터 저장
+- **매일 자정(00:00 KST) 자동 실행** - APScheduler를 통한 자동 크롤링
 
 **기술:**
 - Python 3.11
@@ -178,9 +179,13 @@ make logs
 cd services/parser
 python3.11 -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements/dev.txt
 
 # .env 파일 설정 후
+# 자동 스케줄러 실행 (매일 자정 자동 크롤링)
+python scheduler.py
+
+# 또는 수동 실행 (1회)
 python main.py
 ```
 
