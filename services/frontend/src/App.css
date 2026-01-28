@@ -9,6 +9,7 @@
   color: white;
   padding: 1.5rem 2rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  text-align: center;
 }
 
 .header h1 {
@@ -20,6 +21,7 @@
 .navigation {
   display: flex;
   gap: 0.5rem;
+  justify-content: center;
 }
 
 .nav-link {
