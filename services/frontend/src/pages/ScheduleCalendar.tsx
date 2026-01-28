@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { scheduleApi } from '../services/api';
 import type { Facility, Schedule } from '../types/schedule';
+import { openSourceUrl } from '../utils/urlUtils';
 import './ScheduleCalendar.css';
 
 function ScheduleCalendar() {
@@ -161,13 +162,12 @@ function ScheduleCalendar() {
 
                 {schedule.source_url && (
                   <div className="schedule-footer">
-                    <a
-                      href={schedule.source_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      onClick={() => openSourceUrl(schedule.source_url!)}
+                      className="source-link-btn"
                     >
                       원본 보기
-                    </a>
+                    </button>
                   </div>
                 )}
               </div>

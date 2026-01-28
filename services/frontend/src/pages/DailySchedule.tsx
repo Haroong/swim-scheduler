@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { scheduleApi } from '../services/api';
 import type { DailySchedule } from '../types/schedule';
+import { openSourceUrl } from '../utils/urlUtils';
 import './DailySchedule.css';
 
 function DailySchedulePage() {
@@ -129,14 +130,12 @@ function DailySchedulePage() {
 
                   {schedule.source_url && (
                     <div className="card-footer">
-                      <a
-                        href={schedule.source_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        onClick={() => openSourceUrl(schedule.source_url!)}
                         className="source-link"
                       >
                         원본 공지 보기 →
-                      </a>
+                      </button>
                     </div>
                   )}
                 </div>
