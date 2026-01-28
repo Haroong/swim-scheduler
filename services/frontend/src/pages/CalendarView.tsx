@@ -16,6 +16,17 @@ function CalendarView() {
     loadCalendarData();
   }, [year, month]);
 
+  // 오늘 날짜 자동 선택 (현재 월인 경우에만)
+  useEffect(() => {
+    const today = new Date();
+    const isCurrentMonth = today.getFullYear() === year && today.getMonth() + 1 === month;
+
+    if (isCurrentMonth && !selectedDate) {
+      const todayStr = `${year}-${month.toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
+      setSelectedDate(todayStr);
+    }
+  }, [calendarData, year, month]);
+
   useEffect(() => {
     if (selectedDate) {
       loadDailySchedules(selectedDate);
