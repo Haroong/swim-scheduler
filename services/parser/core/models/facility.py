@@ -59,7 +59,7 @@ class Facility(Enum):
         organization=Organization.SNHDC,
         url_code="sns",
         facility_id="02",
-        aliases=("성남종합",)
+        aliases=("성남종합", "성남종합스포츠센터", "성남종합운동장수영장")
     )
     TANCHEON_STADIUM = FacilityInfo(
         name="탄천종합운동장",

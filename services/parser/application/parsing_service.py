@@ -14,6 +14,7 @@ from core.parser.extractors.pdf_text_extractor import PdfTextExtractor
 from core.parser.validators.content_validator import ContentValidator
 from core.parser.llm.llm_parser import LLMParser
 from core.models.crawler import PostDetail
+from core.models.facility_manager import FacilityNameMatcher
 
 logger = logging.getLogger(__name__)
 
@@ -60,12 +61,10 @@ class ParsingService:
         if notice.has_attachment:
             file_paths = self.downloader.download_from_post_detail(notice)
             if file_paths:
-                # HWP 또는 PDF 파일 찾기
-                for fp in file_paths:
-                    if fp.suffix.lower() in [".hwp", ".pdf"]:
-                        file_path = fp
-                        logger.info(f"파일 다운로드 성공: {file_path.name}")
-                        break
+                # HWP 또는 PDF 파일 찾기 (우선순위 기반)
+                file_path = self._select_best_file(file_paths)
+                if file_path:
+                    logger.info(f"파일 다운로드 성공: {file_path.name}")
 
         # 2. 텍스트 추출
         if file_path:
@@ -105,6 +104,18 @@ class ParsingService:
                 result["facility_name"] = notice.facility_name
                 logger.info(f"크롤링 시설명 사용: {notice.facility_name}")
 
+            # 시설명 정규화 (Fuzzy matching)
+            if result.get("facility_name"):
+                original_name = result["facility_name"]
+                normalized_name, confidence, match_type = FacilityNameMatcher.normalize_facility_name(original_name)
+
+                if normalized_name != original_name:
+                    logger.info(
+                        f"시설명 정규화: '{original_name}' → '{normalized_name}' "
+                        f"(confidence: {confidence:.2f}, type: {match_type})"
+                    )
+                    result["facility_name"] = normalized_name
+
             # 추가 메타데이터 포함
             result["source_file"] = file_path.name if file_path else None
             result["source_notice_title"] = notice.title
@@ -136,6 +147,62 @@ class ParsingService:
 
         logger.info(f"일괄 파싱 완료: {len(results)}/{len(notices)}개 성공")
         return results
+
+    def _select_best_file(self, file_paths: List[Path]) -> Optional[Path]:
+        """
+        첨부파일 중 가장 적합한 파일 선택 (우선순위 기반)
+
+        Args:
+            file_paths: 첨부파일 경로 리스트
+
+        Returns:
+            선택된 파일 경로 (없으면 None)
+        """
+        # 우선순위 키워드 (높을수록 좋음)
+        priority_keywords = ["프로그램", "스케줄", "진도", "자유수영", "운영", "일일"]
+
+        # 제외 키워드 (낮을수록 좋음)
+        exclude_keywords = ["이용법규", "해설", "규칙", "약관", "안내문"]
+
+        def get_file_priority(fp: Path) -> int:
+            """파일 우선순위 점수 계산"""
+            if fp.suffix.lower() not in [".hwp", ".pdf"]:
+                return -100  # 지원하지 않는 형식
+
+            score = 0
+            filename = fp.name
+
+            # 우선순위 키워드 가산점
+            for keyword in priority_keywords:
+                if keyword in filename:
+                    score += 10
+
+            # 제외 키워드 감점
+            for keyword in exclude_keywords:
+                if keyword in filename:
+                    score -= 20
+
+            # HWP 파일 약간 선호 (텍스트 추출이 더 안정적)
+            if fp.suffix.lower() == ".hwp":
+                score += 1
+
+            return score
+
+        # HWP/PDF 파일만 필터링
+        valid_files = [fp for fp in file_paths if fp.suffix.lower() in [".hwp", ".pdf"]]
+
+        if not valid_files:
+            return None
+
+        # 우선순위 정렬하여 가장 높은 점수의 파일 선택
+        sorted_files = sorted(valid_files, key=get_file_priority, reverse=True)
+        selected = sorted_files[0]
+
+        # 디버깅용 로그
+        if len(sorted_files) > 1:
+            logger.info(f"첨부파일 {len(sorted_files)}개 중 선택: {selected.name} (점수: {get_file_priority(selected)})")
+
+        return selected
 
     def _extract_text(self, file_path: Path) -> Optional[str]:
         """
