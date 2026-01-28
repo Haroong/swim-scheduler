@@ -7,7 +7,10 @@ function ScheduleCalendar() {
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [selectedFacility, setSelectedFacility] = useState<string>('');
-  const [selectedMonth, setSelectedMonth] = useState<string>('');
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
