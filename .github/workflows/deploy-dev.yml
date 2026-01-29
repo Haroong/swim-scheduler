@@ -8,7 +8,6 @@ on:
 
 env:
   DOCKER_REGISTRY: ghcr.io
-  IMAGE_PREFIX: ${{ github.repository_owner }}/swim-scheduler
 
 jobs:
   build-and-push:
@@ -35,6 +34,10 @@ jobs:
       - name: Extract metadata
         id: meta
         run: |
+          # repository owner를 소문자로 변환 (Docker 이미지 태그 요구사항)
+          OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "owner=${OWNER_LC}" >> $GITHUB_OUTPUT
+          echo "image_prefix=${OWNER_LC}/swim-scheduler" >> $GITHUB_OUTPUT
           echo "sha_short=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
 
       - name: Build and push Parser image
@@ -44,9 +47,9 @@ jobs:
           file: ./services/parser/Dockerfile
           push: true
           tags: |
-            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}-parser:latest
-            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}-parser:${{ steps.meta.outputs.sha_short }}
-          cache-from: type=registry,ref=${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}-parser:latest
+            ${{ env.DOCKER_REGISTRY }}/${{ steps.meta.outputs.image_prefix }}-parser:latest
+            ${{ env.DOCKER_REGISTRY }}/${{ steps.meta.outputs.image_prefix }}-parser:${{ steps.meta.outputs.sha_short }}
+          cache-from: type=registry,ref=${{ env.DOCKER_REGISTRY }}/${{ steps.meta.outputs.image_prefix }}-parser:latest
           cache-to: type=inline
 
       - name: Build and push API image
@@ -56,9 +59,9 @@ jobs:
           file: ./services/api/Dockerfile
           push: true
           tags: |
-            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}-api:latest
-            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}-api:${{ steps.meta.outputs.sha_short }}
-          cache-from: type=registry,ref=${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}-api:latest
+            ${{ env.DOCKER_REGISTRY }}/${{ steps.meta.outputs.image_prefix }}-api:latest
+            ${{ env.DOCKER_REGISTRY }}/${{ steps.meta.outputs.image_prefix }}-api:${{ steps.meta.outputs.sha_short }}
+          cache-from: type=registry,ref=${{ env.DOCKER_REGISTRY }}/${{ steps.meta.outputs.image_prefix }}-api:latest
           cache-to: type=inline
 
       - name: Build and push Frontend image
@@ -68,9 +71,9 @@ jobs:
           file: ./services/frontend/Dockerfile
           push: true
           tags: |
-            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:latest
-            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:${{ steps.meta.outputs.sha_short }}
-          cache-from: type=registry,ref=${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:latest
+            ${{ env.DOCKER_REGISTRY }}/${{ steps.meta.outputs.image_prefix }}-frontend:latest
+            ${{ env.DOCKER_REGISTRY }}/${{ steps.meta.outputs.image_prefix }}-frontend:${{ steps.meta.outputs.sha_short }}
+          cache-from: type=registry,ref=${{ env.DOCKER_REGISTRY }}/${{ steps.meta.outputs.image_prefix }}-frontend:latest
           cache-to: type=inline
 
   deploy:
@@ -98,9 +101,11 @@ jobs:
 
       - name: Create .env file
         run: |
-          ssh -i ~/.ssh/id_rsa ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+          # repository owner를 소문자로 변환
+          OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          ssh -i ~/.ssh/id_rsa ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << EOF
             cat > ~/swim-scheduler/.env << 'ENVFILE'
-          GITHUB_REPOSITORY_OWNER=${{ github.repository_owner }}
+          GITHUB_REPOSITORY_OWNER=${OWNER_LC}
           DB_ROOT_PASSWORD=${{ secrets.DB_ROOT_PASSWORD }}
           DB_USER=swim_app
           DB_PASSWORD=${{ secrets.DB_PASSWORD }}
