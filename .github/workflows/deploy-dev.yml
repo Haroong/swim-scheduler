@@ -120,14 +120,18 @@ jobs:
             # GitHub Container Registry 로그인
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
+            # 배포 전 디스크 공간 확보
+            echo "📦 사용하지 않는 Docker 데이터 정리 중..."
+            docker system prune -af --volumes
+
             # 최신 이미지 pull
             docker compose pull
 
             # 컨테이너 재시작
             docker compose up -d --remove-orphans
 
-            # 이전 이미지 정리
-            docker image prune -af --filter "until=24h"
+            # 배포 후 추가 정리
+            docker image prune -af
 
             # 상태 확인
             docker compose ps
