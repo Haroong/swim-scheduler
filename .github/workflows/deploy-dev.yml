@@ -1,0 +1,142 @@
+name: Deploy to GCP VM (Dev)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  DOCKER_REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/swim-scheduler
+
+jobs:
+  build-and-push:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        run: |
+          echo "sha_short=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+
+      - name: Build and push Parser image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/parser
+          file: ./services/parser/Dockerfile
+          push: true
+          tags: |
+            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}-parser:latest
+            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}-parser:${{ steps.meta.outputs.sha_short }}
+          cache-from: type=registry,ref=${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}-parser:latest
+          cache-to: type=inline
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services
+          file: ./services/api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}-api:latest
+            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}-api:${{ steps.meta.outputs.sha_short }}
+          cache-from: type=registry,ref=${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}-api:latest
+          cache-to: type=inline
+
+      - name: Build and push Frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/frontend
+          file: ./services/frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:latest
+            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:${{ steps.meta.outputs.sha_short }}
+          cache-from: type=registry,ref=${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:latest
+          cache-to: type=inline
+
+  deploy:
+    name: Deploy to Dev Server
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Copy files to server
+        run: |
+          ssh -i ~/.ssh/id_rsa ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "mkdir -p ~/swim-scheduler/services/db"
+          scp -i ~/.ssh/id_rsa docker-compose.dev.yml ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/swim-scheduler/docker-compose.yml
+          scp -i ~/.ssh/id_rsa -r monitoring ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/swim-scheduler/
+          scp -i ~/.ssh/id_rsa services/db/init.sql ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/swim-scheduler/services/db/
+
+      - name: Create .env file
+        run: |
+          ssh -i ~/.ssh/id_rsa ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+            cat > ~/swim-scheduler/.env << 'ENVFILE'
+          GITHUB_REPOSITORY_OWNER=${{ github.repository_owner }}
+          DB_ROOT_PASSWORD=${{ secrets.DB_ROOT_PASSWORD }}
+          DB_USER=swim_app
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_NAME=swim_dev
+          ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+          GRAFANA_USER=admin
+          GRAFANA_PASSWORD=${{ secrets.GRAFANA_PASSWORD }}
+          ENVFILE
+            chmod 600 ~/swim-scheduler/.env
+          EOF
+
+      - name: Deploy
+        run: |
+          ssh -i ~/.ssh/id_rsa ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+            set -e
+            cd ~/swim-scheduler
+
+            # GitHub Container Registry 로그인
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # 최신 이미지 pull
+            docker compose pull
+
+            # 컨테이너 재시작
+            docker compose up -d --remove-orphans
+
+            # 이전 이미지 정리
+            docker image prune -af --filter "until=24h"
+
+            # 상태 확인
+            docker compose ps
+            echo "✅ 배포 완료!"
+          EOF
+
+      - name: Health check
+        run: |
+          sleep 10
+          curl -f http://${{ secrets.SSH_HOST }}:8000/health || exit 1
+          echo "✅ Health check 통과"
