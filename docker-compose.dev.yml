@@ -67,6 +67,7 @@ services:
       DB_USER: ${DB_USER:-swim_app}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME:-swim_dev}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       API_HOST: 0.0.0.0
       API_PORT: 8000
     ports:

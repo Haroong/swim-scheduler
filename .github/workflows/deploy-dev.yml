@@ -136,6 +136,21 @@ jobs:
 
       - name: Health check
         run: |
-          sleep 10
-          curl -f http://${{ secrets.SSH_HOST }}:8000/health || exit 1
-          echo "✅ Health check 통과"
+          echo "API 시작 대기 중..."
+          sleep 30
+
+          # 최대 5번 재시도 (30초 간격)
+          for i in {1..5}; do
+            echo "Health check 시도 $i/5..."
+            if curl -f http://${{ secrets.SSH_HOST }}:8000/health; then
+              echo "✅ Health check 통과"
+              exit 0
+            fi
+            if [ $i -lt 5 ]; then
+              echo "재시도 대기 중..."
+              sleep 30
+            fi
+          done
+
+          echo "❌ Health check 실패"
+          exit 1
