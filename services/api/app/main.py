@@ -2,6 +2,7 @@
 Swim Scheduler API
 FastAPI 기반 수영장 스케줄 API 서버
 """
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -9,11 +10,31 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import logging_config
 
 from app.routes import schedules
+from app.models.base import Base
+from app.database.session import engine
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    애플리케이션 시작/종료 시 실행되는 이벤트
+    - 시작 시: 테이블 자동 생성 (없는 경우에만)
+    """
+    # Startup: 테이블 자동 생성 (Spring JPA의 ddl-auto: update와 유사)
+    # 모든 모델 import하여 Base.metadata에 등록
+    from app.models import facility, schedule, notice, fee
+    Base.metadata.create_all(bind=engine)
+
+    yield
+
+    # Shutdown: 정리 작업 (필요시)
+
 
 app = FastAPI(
     title="Swim Scheduler API",
     description="성남시 수영장 자유수영 스케줄 API",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # CORS 설정 (React 연동)

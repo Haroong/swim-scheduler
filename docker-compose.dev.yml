@@ -1,0 +1,162 @@
+version: '3.8'
+
+# 개발(Dev) 환경용 Docker Compose
+
+services:
+  # ========== 데이터베이스 ==========
+
+  # MariaDB
+  db:
+    image: mariadb:11.2
+    container_name: swim-scheduler-db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME:-swim_dev}
+      MYSQL_USER: ${DB_USER:-swim_app}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      TZ: Asia/Seoul
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./services/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - swim-network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  # ========== 애플리케이션 ==========
+
+  # Parser 서비스 (크롤링 및 LLM 파싱)
+  parser:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/swim-scheduler-parser:latest
+    container_name: swim-scheduler-parser
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-swim_app}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-swim_dev}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      TZ: Asia/Seoul
+      ENV: dev
+      LOKI_ENABLED: "true"
+      LOKI_URL: http://loki:3100/loki/api/v1/push
+    volumes:
+      - parser_data:/app/data
+    networks:
+      - swim-network
+    depends_on:
+      db:
+        condition: service_healthy
+      loki:
+        condition: service_started
+    restart: always
+
+  # API 서비스 (FastAPI)
+  api:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/swim-scheduler-api:latest
+    container_name: swim-scheduler-api
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-swim_app}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-swim_dev}
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+    ports:
+      - "8000:8000"
+    networks:
+      - swim-network
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: always
+
+  # Frontend 서비스 (React + Nginx)
+  frontend:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/swim-scheduler-frontend:latest
+    container_name: swim-scheduler-frontend
+    ports:
+      - "80:80"
+    networks:
+      - swim-network
+    depends_on:
+      - api
+    restart: always
+
+  # ========== 모니터링 스택 ==========
+
+  # Loki (로그 수집)
+  loki:
+    image: grafana/loki:2.9.3
+    container_name: swim-scheduler-loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki-config.yml:/etc/loki/local-config.yaml
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - swim-network
+    restart: always
+
+  # Prometheus (메트릭 수집)
+  prometheus:
+    image: prom/prometheus:v2.48.1
+    container_name: swim-scheduler-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - swim-network
+    restart: always
+
+  # Grafana (통합 대시보드)
+  grafana:
+    image: grafana/grafana:10.2.3
+    container_name: swim-scheduler-grafana
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      - swim-network
+    depends_on:
+      - loki
+      - prometheus
+    restart: always
+
+networks:
+  swim-network:
+    driver: bridge
+
+volumes:
+  db_data:
+  parser_data:
+  loki_data:
+  prometheus_data:
+  grafana_data:
