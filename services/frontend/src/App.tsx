@@ -2,31 +2,33 @@ import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react
 import ScheduleCalendar from './pages/ScheduleCalendar'
 import DailySchedule from './pages/DailySchedule'
 import CalendarView from './pages/CalendarView'
-import './App.css'
 
 function Navigation() {
   const location = useLocation();
 
+  const navItems = [
+    { path: '/', label: '오늘의 자유수영' },
+    { path: '/monthly', label: '월별 스케줄' },
+    { path: '/calendar', label: '달력' },
+  ];
+
   return (
-    <nav className="navigation">
-      <Link
-        to="/"
-        className={location.pathname === '/' ? 'nav-link active' : 'nav-link'}
-      >
-        일별 스케줄
-      </Link>
-      <Link
-        to="/monthly"
-        className={location.pathname === '/monthly' ? 'nav-link active' : 'nav-link'}
-      >
-        월별 스케줄
-      </Link>
-      <Link
-        to="/calendar"
-        className={location.pathname === '/calendar' ? 'nav-link active' : 'nav-link'}
-      >
-        달력 보기
-      </Link>
+    <nav className="flex gap-1 sm:gap-2">
+      {navItems.map((item) => (
+        <Link
+          key={item.path}
+          to={item.path}
+          className={`
+            px-3 sm:px-4 py-2 rounded-lg text-sm sm:text-base font-medium transition-all
+            ${location.pathname === item.path
+              ? 'bg-primary-500 text-white shadow-sm'
+              : 'text-slate-600 hover:bg-slate-100'
+            }
+          `}
+        >
+          {item.label}
+        </Link>
+      ))}
     </nav>
   );
 }
@@ -34,18 +36,51 @@ function Navigation() {
 function App() {
   return (
     <Router>
-      <div className="App">
-        <header className="header">
-          <h1>성남시 수영장 자유수영 스케줄</h1>
-          <Navigation />
+      <div className="min-h-screen flex flex-col bg-slate-50">
+        {/* Header */}
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <Link to="/" className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-primary-500 rounded-xl flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
+                  </svg>
+                </div>
+                <div>
+                  <h1 className="text-lg sm:text-xl font-bold text-slate-800">
+                    성남시 자유수영
+                  </h1>
+                  <p className="text-xs sm:text-sm text-slate-500 hidden sm:block">
+                    수영장 운영 시간을 한눈에
+                  </p>
+                </div>
+              </Link>
+              <Navigation />
+            </div>
+          </div>
         </header>
-        <main className="main">
-          <Routes>
-            <Route path="/" element={<DailySchedule />} />
-            <Route path="/monthly" element={<ScheduleCalendar />} />
-            <Route path="/calendar" element={<CalendarView />} />
-          </Routes>
+
+        {/* Main Content */}
+        <main className="flex-1">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+            <Routes>
+              <Route path="/" element={<DailySchedule />} />
+              <Route path="/monthly" element={<ScheduleCalendar />} />
+              <Route path="/calendar" element={<CalendarView />} />
+            </Routes>
+          </div>
         </main>
+
+        {/* Footer */}
+        <footer className="bg-white border-t border-slate-200 py-6">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 text-center text-sm text-slate-500">
+            <p>성남시 공공 수영장 자유수영 일정 정보</p>
+            <p className="mt-1 text-xs text-slate-400">
+              * 실제 운영 시간은 각 시설에 문의해주세요
+            </p>
+          </div>
+        </footer>
       </div>
     </Router>
   )

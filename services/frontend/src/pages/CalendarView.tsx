@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { scheduleApi } from '../services/api';
 import type { CalendarData, DailySchedule } from '../types/schedule';
 import { openSourceUrl } from '../utils/urlUtils';
-import './CalendarView.css';
 
 function CalendarView() {
   const [year, setYear] = useState<number>(() => new Date().getFullYear());
@@ -17,7 +16,6 @@ function CalendarView() {
     loadCalendarData();
   }, [year, month]);
 
-  // 오늘 날짜 자동 선택 (현재 월인 경우에만)
   useEffect(() => {
     const today = new Date();
     const isCurrentMonth = today.getFullYear() === year && today.getMonth() + 1 === month;
@@ -96,12 +94,10 @@ function CalendarView() {
     const firstDay = getFirstDayOfMonth(year, month);
     const days: JSX.Element[] = [];
 
-    // 이전 달의 빈 칸
     for (let i = 0; i < firstDay; i++) {
-      days.push(<div key={`empty-${i}`} className="calendar-day empty"></div>);
+      days.push(<div key={`empty-${i}`} className="aspect-square"></div>);
     }
 
-    // 현재 달의 날짜
     const today = new Date();
     const isCurrentMonth = today.getFullYear() === year && today.getMonth() + 1 === month;
 
@@ -109,16 +105,31 @@ function CalendarView() {
       const dateStr = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
       const isToday = isCurrentMonth && today.getDate() === day;
       const isSelected = selectedDate === dateStr;
+      const dayOfWeek = (firstDay + day - 1) % 7;
+      const isSunday = dayOfWeek === 0;
+      const isSaturday = dayOfWeek === 6;
 
       days.push(
-        <div
+        <button
           key={day}
-          className={`calendar-day ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}`}
           onClick={() => handleDateClick(day)}
+          className={`
+            aspect-square rounded-xl flex flex-col items-center justify-center transition-all
+            ${isSelected
+              ? 'bg-primary-500 text-white shadow-lg scale-105'
+              : isToday
+                ? 'bg-primary-100 text-primary-700 font-semibold'
+                : 'hover:bg-slate-100'
+            }
+            ${!isSelected && isSunday ? 'text-red-500' : ''}
+            ${!isSelected && isSaturday ? 'text-blue-500' : ''}
+          `}
         >
-          <div className="day-number">{day}</div>
-          <div className="day-indicator"></div>
-        </div>
+          <span className="text-sm sm:text-base font-medium">{day}</span>
+          {isToday && !isSelected && (
+            <span className="w-1 h-1 bg-primary-500 rounded-full mt-1"></span>
+          )}
+        </button>
       );
     }
 
@@ -129,7 +140,7 @@ function CalendarView() {
     const date = new Date(dateStr);
     const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
     const weekday = weekdays[date.getDay()];
-    return `${year}년 ${month}월 ${date.getDate()}일 (${weekday})`;
+    return `${date.getDate()}일 (${weekday})`;
   };
 
   const parseNotes = (notesStr?: string): string[] => {
@@ -142,100 +153,187 @@ function CalendarView() {
   };
 
   return (
-    <div className="calendar-view">
-      <div className="calendar-container">
-        <div className="calendar-header">
-          <button onClick={handlePrevMonth} className="nav-button">‹</button>
-          <h2>{year}년 {month}월</h2>
-          <button onClick={handleNextMonth} className="nav-button">›</button>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Calendar */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <button
+            onClick={handlePrevMonth}
+            className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
+          >
+            <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <h2 className="text-xl font-bold text-slate-800">
+            {year}년 {month}월
+          </h2>
+          <button
+            onClick={handleNextMonth}
+            className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
+          >
+            <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
         </div>
 
-        {error && <div className="error-message">{error}</div>}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 mb-4">
+            {error}
+          </div>
+        )}
 
         {loading ? (
-          <div className="loading">로딩 중...</div>
+          <div className="flex items-center justify-center py-20">
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-12 h-12 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin"></div>
+              <p className="text-slate-500">로딩 중...</p>
+            </div>
+          </div>
         ) : (
           <>
-            <div className="calendar-weekdays">
-              <div className="weekday sunday">일</div>
-              <div className="weekday">월</div>
-              <div className="weekday">화</div>
-              <div className="weekday">수</div>
-              <div className="weekday">목</div>
-              <div className="weekday">금</div>
-              <div className="weekday saturday">토</div>
+            {/* Weekdays */}
+            <div className="grid grid-cols-7 gap-1 mb-2">
+              {['일', '월', '화', '수', '목', '금', '토'].map((day, idx) => (
+                <div
+                  key={day}
+                  className={`
+                    text-center text-sm font-medium py-2
+                    ${idx === 0 ? 'text-red-500' : idx === 6 ? 'text-blue-500' : 'text-slate-500'}
+                  `}
+                >
+                  {day}
+                </div>
+              ))}
             </div>
 
-            <div className="calendar-grid">
+            {/* Calendar Grid */}
+            <div className="grid grid-cols-7 gap-1">
               {renderCalendar()}
             </div>
 
-            <div className="calendar-info">
-              날짜를 클릭하면 해당 날짜의 운영 시설을 확인할 수 있습니다.
+            {/* Info */}
+            <div className="mt-6 text-center text-sm text-slate-400">
+              날짜를 클릭하면 해당 날짜의 운영 시설을 확인할 수 있습니다
             </div>
           </>
         )}
       </div>
 
-      {selectedDate && (
-        <div className="daily-detail">
-          <h3>{formatSelectedDate(selectedDate)}</h3>
-          {dailySchedules.length === 0 ? (
-            <div className="no-schedules">
-              이 날은 운영하는 수영장이 없습니다.
+      {/* Daily Detail */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        {selectedDate ? (
+          <>
+            {/* Detail Header */}
+            <div className="p-6 border-b border-slate-100 bg-gradient-to-r from-primary-50 to-white">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-primary-500 rounded-xl flex items-center justify-center text-white font-bold text-lg">
+                  {new Date(selectedDate).getDate()}
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-800">
+                    {formatSelectedDate(selectedDate)}
+                  </h3>
+                  <p className="text-sm text-slate-500">
+                    {dailySchedules.length > 0
+                      ? `${dailySchedules.length}개 수영장 운영`
+                      : '운영하는 수영장 없음'
+                    }
+                  </p>
+                </div>
+              </div>
             </div>
-          ) : (
-            <div className="schedules-list">
-              {dailySchedules.map((schedule) => (
-                <div key={schedule.facility_id} className="schedule-card">
-                  <div className="card-header">
-                    <h4>{schedule.facility_name}</h4>
-                    <span className="day-type-badge">
-                      {schedule.day_type}
-                      {schedule.season && ` · ${schedule.season}`}
-                    </span>
-                  </div>
 
-                  <div className="sessions">
-                    {schedule.sessions.map((session, idx) => (
-                      <div key={idx} className="session">
-                        <div className="session-name">{session.session_name}</div>
-                        <div className="session-time">
-                          {session.start_time.substring(0, 5)} - {session.end_time.substring(0, 5)}
-                        </div>
-                        <div className="session-details">
-                          {session.capacity && <span>정원 {session.capacity}명</span>}
-                          {session.lanes && <span>{session.lanes}레인</span>}
+            {/* Detail Content */}
+            <div className="p-6 max-h-[600px] overflow-y-auto">
+              {dailySchedules.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                    </svg>
+                  </div>
+                  <p className="text-slate-500">이 날은 운영하는 수영장이 없습니다.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {dailySchedules.map((schedule) => (
+                    <div
+                      key={schedule.facility_id}
+                      className="bg-slate-50 rounded-xl p-4"
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <h4 className="font-bold text-slate-800">
+                          {schedule.facility_name}
+                        </h4>
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs px-2 py-0.5 bg-slate-200 text-slate-600 rounded">
+                            {schedule.day_type}
+                          </span>
+                          {schedule.season && (
+                            <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-600 rounded">
+                              {schedule.season}
+                            </span>
+                          )}
                         </div>
                       </div>
-                    ))}
-                  </div>
 
-                  {parseNotes(schedule.notes).length > 0 && (
-                    <div className="notes">
-                      <h5>유의사항</h5>
-                      <ul>
-                        {parseNotes(schedule.notes).map((note, idx) => (
-                          <li key={idx}>{note}</li>
+                      <div className="space-y-2">
+                        {schedule.sessions.map((session, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between bg-white rounded-lg p-3"
+                          >
+                            <span className="font-medium text-slate-700 text-sm">
+                              {session.session_name}
+                            </span>
+                            <span className="text-primary-600 font-semibold text-sm">
+                              {session.start_time.substring(0, 5)} - {session.end_time.substring(0, 5)}
+                            </span>
+                          </div>
                         ))}
-                      </ul>
-                    </div>
-                  )}
+                      </div>
 
-                  {schedule.source_url && (
-                    <button
-                      onClick={() => openSourceUrl(schedule.source_url!)}
-                      className="source-link"
-                    >
-                      원본 공지 보기 →
-                    </button>
-                  )}
+                      {parseNotes(schedule.notes).length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-slate-200">
+                          <p className="text-xs text-amber-600">
+                            {parseNotes(schedule.notes)[0]}
+                          </p>
+                        </div>
+                      )}
+
+                      {schedule.source_url && (
+                        <button
+                          onClick={() => openSourceUrl(schedule.source_url!)}
+                          className="mt-3 w-full py-2 text-sm text-slate-500 hover:text-primary-600 transition-colors flex items-center justify-center gap-1"
+                        >
+                          원본 공지 보기
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          )}
-        </div>
-      )}
+          </>
+        ) : (
+          <div className="flex items-center justify-center h-full min-h-[400px]">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <p className="text-slate-500">날짜를 선택해주세요</p>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
