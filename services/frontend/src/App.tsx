@@ -21,8 +21,8 @@ function Navigation() {
           className={`
             px-3 sm:px-4 py-2 rounded-lg text-sm sm:text-base font-medium transition-all
             ${location.pathname === item.path
-              ? 'bg-primary-500 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-100'
+              ? 'bg-white text-primary-600 shadow-sm'
+              : 'text-white/90 hover:bg-white/20'
             }
           `}
         >
@@ -37,21 +37,21 @@ function App() {
   return (
     <Router>
       <div className="min-h-screen flex flex-col bg-slate-50">
-        {/* Header */}
-        <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
+        {/* Header with Gradient */}
+        <header className="bg-gradient-to-r from-primary-600 via-primary-500 to-cyan-500 sticky top-0 z-50 shadow-lg">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <Link to="/" className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-primary-500 rounded-xl flex items-center justify-center">
+                <div className="w-10 h-10 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
                   <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
                   </svg>
                 </div>
                 <div>
-                  <h1 className="text-lg sm:text-xl font-bold text-slate-800">
+                  <h1 className="text-lg sm:text-xl font-bold text-white">
                     성남시 자유수영
                   </h1>
-                  <p className="text-xs sm:text-sm text-slate-500 hidden sm:block">
+                  <p className="text-xs sm:text-sm text-white/80 hidden sm:block">
                     수영장 운영 시간을 한눈에
                   </p>
                 </div>

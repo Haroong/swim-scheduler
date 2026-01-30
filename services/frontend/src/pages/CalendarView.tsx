@@ -155,29 +155,33 @@ function CalendarView() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Calendar */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <button
-            onClick={handlePrevMonth}
-            className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
-          >
-            <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <h2 className="text-xl font-bold text-slate-800">
-            {year}년 {month}월
-          </h2>
-          <button
-            onClick={handleNextMonth}
-            className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
-          >
-            <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        {/* Header with Gradient */}
+        <div className="bg-gradient-to-r from-violet-500 to-purple-500 p-6">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={handlePrevMonth}
+              className="w-10 h-10 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+            >
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <h2 className="text-xl font-bold text-white">
+              {year}년 {month}월
+            </h2>
+            <button
+              onClick={handleNextMonth}
+              className="w-10 h-10 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+            >
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
         </div>
+
+        <div className="p-6">
 
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 mb-4">
@@ -220,6 +224,7 @@ function CalendarView() {
             </div>
           </>
         )}
+        </div>
       </div>
 
       {/* Daily Detail */}
@@ -227,16 +232,16 @@ function CalendarView() {
         {selectedDate ? (
           <>
             {/* Detail Header */}
-            <div className="p-6 border-b border-slate-100 bg-gradient-to-r from-primary-50 to-white">
+            <div className="p-6 bg-gradient-to-r from-violet-500 to-purple-500">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-primary-500 rounded-xl flex items-center justify-center text-white font-bold text-lg">
+                <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center text-white font-bold text-lg">
                   {new Date(selectedDate).getDate()}
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-slate-800">
+                  <h3 className="text-lg font-bold text-white">
                     {formatSelectedDate(selectedDate)}
                   </h3>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-white/80">
                     {dailySchedules.length > 0
                       ? `${dailySchedules.length}개 수영장 운영`
                       : '운영하는 수영장 없음'

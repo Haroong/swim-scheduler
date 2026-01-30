@@ -56,17 +56,17 @@ function ScheduleCalendar() {
   return (
     <div className="space-y-6">
       {/* Filters */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      <div className="bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl shadow-lg p-6">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1">
-            <label htmlFor="facility" className="block text-sm font-medium text-slate-600 mb-2">
+            <label htmlFor="facility" className="block text-sm font-medium text-white/80 mb-2">
               수영장 선택
             </label>
             <select
               id="facility"
               value={selectedFacility}
               onChange={(e) => setSelectedFacility(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+              className="w-full px-4 py-3 bg-white/90 border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-white/50 transition-all text-slate-700"
             >
               <option value="">전체 수영장</option>
               {facilities.map((facility) => (
@@ -78,7 +78,7 @@ function ScheduleCalendar() {
           </div>
 
           <div className="sm:w-48">
-            <label htmlFor="month" className="block text-sm font-medium text-slate-600 mb-2">
+            <label htmlFor="month" className="block text-sm font-medium text-white/80 mb-2">
               월 선택
             </label>
             <input
@@ -86,7 +86,7 @@ function ScheduleCalendar() {
               type="month"
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+              className="w-full px-4 py-3 bg-white/90 border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-white/50 transition-all text-slate-700"
             />
           </div>
         </div>
@@ -119,18 +119,18 @@ function ScheduleCalendar() {
               <p className="text-slate-500">스케줄 데이터가 없습니다.</p>
             </div>
           ) : (
-            schedules.map((schedule) => (
+            schedules.map((schedule, index) => (
               <div
                 key={`${schedule.facility_id}-${schedule.valid_month}`}
                 className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden"
               >
                 {/* Header */}
-                <div className="p-6 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
+                <div className={`p-6 border-b border-slate-100 ${index % 3 === 0 ? 'bg-gradient-to-r from-primary-500 to-cyan-500' : index % 3 === 1 ? 'bg-gradient-to-r from-emerald-500 to-teal-500' : 'bg-gradient-to-r from-violet-500 to-purple-500'}`}>
                   <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-bold text-slate-800">
+                    <h2 className="text-xl font-bold text-white">
                       {schedule.facility_name}
                     </h2>
-                    <span className="inline-flex items-center px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm font-medium">
+                    <span className="inline-flex items-center px-3 py-1 bg-white/20 text-white rounded-full text-sm font-medium backdrop-blur">
                       {schedule.valid_month}
                     </span>
                   </div>
@@ -160,23 +160,23 @@ function ScheduleCalendar() {
                         {detail.sessions.map((session, sidx) => (
                           <div
                             key={sidx}
-                            className="bg-slate-50 rounded-xl p-4 hover:bg-slate-100 transition-colors"
+                            className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 hover:from-slate-100 hover:to-slate-150 transition-all border border-slate-200/50"
                           >
                             <div className="font-medium text-slate-800 mb-1">
                               {session.session_name}
                             </div>
-                            <div className="text-primary-600 font-semibold">
+                            <div className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-600 font-bold">
                               {session.start_time} - {session.end_time}
                             </div>
                             {(session.capacity || session.lanes) && (
                               <div className="flex flex-wrap gap-2 mt-2">
                                 {session.capacity && (
-                                  <span className="text-xs text-slate-500 bg-white px-2 py-1 rounded">
+                                  <span className="text-xs text-slate-600 bg-white px-2 py-1 rounded-full border border-slate-200">
                                     정원 {session.capacity}명
                                   </span>
                                 )}
                                 {session.lanes && (
-                                  <span className="text-xs text-slate-500 bg-white px-2 py-1 rounded">
+                                  <span className="text-xs text-slate-600 bg-white px-2 py-1 rounded-full border border-slate-200">
                                     {session.lanes}레인
                                   </span>
                                 )}

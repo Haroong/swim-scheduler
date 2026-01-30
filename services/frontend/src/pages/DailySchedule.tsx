@@ -54,16 +54,16 @@ function DailySchedulePage() {
   return (
     <div className="space-y-6">
       {/* Date Selector */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      <div className="bg-gradient-to-r from-primary-500 to-cyan-500 rounded-2xl shadow-lg p-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center">
-              <svg className="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
             <div>
-              <label htmlFor="date" className="block text-sm font-medium text-slate-500">
+              <label htmlFor="date" className="block text-sm font-medium text-white/80">
                 날짜 선택
               </label>
               <input
@@ -71,12 +71,12 @@ function DailySchedulePage() {
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className="mt-1 text-lg font-semibold text-slate-800 bg-transparent border-none focus:outline-none cursor-pointer"
+                className="mt-1 text-lg font-semibold text-white bg-transparent border-none focus:outline-none cursor-pointer"
               />
             </div>
           </div>
           <div className="sm:ml-auto">
-            <span className="inline-flex items-center px-4 py-2 bg-slate-100 rounded-full text-sm font-medium text-slate-700">
+            <span className="inline-flex items-center px-4 py-2 bg-white/20 backdrop-blur rounded-full text-sm font-medium text-white">
               {formatDate(selectedDate)}
             </span>
           </div>
@@ -122,11 +122,15 @@ function DailySchedulePage() {
               </div>
 
               {/* Schedule Cards */}
-              {schedules.map((schedule) => (
+              {schedules.map((schedule, index) => (
                 <div
                   key={schedule.facility_id}
-                  className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow"
+                  className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow flex"
                 >
+                  {/* Left Color Bar */}
+                  <div className={`w-1.5 ${index % 3 === 0 ? 'bg-gradient-to-b from-primary-500 to-cyan-500' : index % 3 === 1 ? 'bg-gradient-to-b from-emerald-500 to-teal-500' : 'bg-gradient-to-b from-violet-500 to-purple-500'}`} />
+
+                  <div className="flex-1">
                   {/* Card Header */}
                   <div className="p-5 border-b border-slate-100">
                     <div className="flex items-start justify-between">
@@ -135,11 +139,11 @@ function DailySchedulePage() {
                           {schedule.facility_name}
                         </h3>
                         <div className="flex items-center gap-2 mt-1">
-                          <span className="inline-flex items-center px-2.5 py-0.5 bg-slate-100 text-slate-600 rounded-md text-sm">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-sm ${index % 3 === 0 ? 'bg-primary-50 text-primary-700' : index % 3 === 1 ? 'bg-emerald-50 text-emerald-700' : 'bg-violet-50 text-violet-700'}`}>
                             {schedule.day_type}
                           </span>
                           {schedule.season && (
-                            <span className="inline-flex items-center px-2.5 py-0.5 bg-blue-50 text-blue-600 rounded-md text-sm">
+                            <span className="inline-flex items-center px-2.5 py-0.5 bg-cyan-50 text-cyan-700 rounded-md text-sm">
                               {schedule.season}
                             </span>
                           )}
@@ -154,23 +158,23 @@ function DailySchedulePage() {
                       {schedule.sessions.map((session, idx) => (
                         <div
                           key={idx}
-                          className="bg-slate-50 rounded-xl p-4 hover:bg-slate-100 transition-colors"
+                          className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 hover:from-slate-100 hover:to-slate-150 transition-all border border-slate-200/50"
                         >
                           <div className="font-medium text-slate-800 mb-1">
                             {session.session_name}
                           </div>
-                          <div className="text-primary-600 font-semibold text-lg">
+                          <div className="text-transparent bg-clip-text bg-gradient-to-r from-primary-600 to-cyan-600 font-bold text-lg">
                             {session.start_time.substring(0, 5)} - {session.end_time.substring(0, 5)}
                           </div>
                           {(session.capacity || session.lanes) && (
                             <div className="flex flex-wrap gap-2 mt-2">
                               {session.capacity && (
-                                <span className="text-xs text-slate-500 bg-white px-2 py-1 rounded">
+                                <span className="text-xs text-slate-600 bg-white px-2 py-1 rounded-full border border-slate-200">
                                   정원 {session.capacity}명
                                 </span>
                               )}
                               {session.lanes && (
-                                <span className="text-xs text-slate-500 bg-white px-2 py-1 rounded">
+                                <span className="text-xs text-slate-600 bg-white px-2 py-1 rounded-full border border-slate-200">
                                   {session.lanes}레인
                                 </span>
                               )}
@@ -208,7 +212,7 @@ function DailySchedulePage() {
                     <div className="px-5 pb-5">
                       <button
                         onClick={() => openSourceUrl(schedule.source_url!)}
-                        className="w-full py-3 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-600 font-medium transition-colors flex items-center justify-center gap-2"
+                        className="w-full py-3 bg-gradient-to-r from-slate-100 to-slate-200 hover:from-slate-200 hover:to-slate-300 rounded-xl text-slate-700 font-medium transition-all flex items-center justify-center gap-2"
                       >
                         원본 공지 보기
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -217,6 +221,7 @@ function DailySchedulePage() {
                       </button>
                     </div>
                   )}
+                  </div>
                 </div>
               ))}
             </>
