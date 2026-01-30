@@ -146,7 +146,7 @@ jobs:
           # 최대 5번 재시도 (30초 간격)
           for i in {1..5}; do
             echo "Health check 시도 $i/5..."
-            if curl -f http://${{ secrets.SSH_HOST }}:8000/health; then
+            if curl -f http://${{ secrets.SSH_HOST }}:80/health; then
               echo "✅ Health check 통과"
               exit 0
             fi
