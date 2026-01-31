@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { scheduleApi } from '../services/api';
 import type { CalendarData, DailySchedule } from '../types/schedule';
 import { openSourceUrl } from '../utils/urlUtils';
-import { LoadingSpinner, EmptyState, Badge } from '../components/common';
+import { LoadingSpinner, Badge } from '../components/common';
 
 function CalendarView() {
   const [year, setYear] = useState<number>(() => new Date().getFullYear());

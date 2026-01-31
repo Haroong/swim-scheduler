@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { scheduleApi } from '../services/api';
 import type { Facility, Schedule } from '../types/schedule';
 import { openSourceUrl } from '../utils/urlUtils';
-import { LoadingSpinner, EmptyState, SessionCard, NotesSection } from '../components/common';
+import { LoadingSpinner, EmptyState, SessionCard } from '../components/common';
 
 function ScheduleCalendar() {
   const [facilities, setFacilities] = useState<Facility[]>([]);
