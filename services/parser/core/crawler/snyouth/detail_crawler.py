@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 from typing import List, Optional
 import logging
 import re
+import requests
 
 from core.crawler.base.detail_crawler import BaseDetailCrawler
 from core.models.crawler import PostDetail, Attachment

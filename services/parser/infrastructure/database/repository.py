@@ -72,7 +72,7 @@ class SwimRepository:
             # 3. schedule + session 저장
             schedules = data.get("schedules", [])
             for schedule in schedules:
-                schedule_id = self._save_schedule(cursor, facility_id, schedule, valid_date)
+                schedule_id = self._save_schedule(cursor, facility_id, notice_id, schedule, valid_date)
                 sessions = schedule.get("sessions", [])
                 self._save_sessions(cursor, schedule_id, sessions)
 
@@ -151,15 +151,15 @@ class SwimRepository:
         )
         return cursor.lastrowid
 
-    def _save_schedule(self, cursor, facility_id: int, schedule: dict, valid_month: str) -> int:
+    def _save_schedule(self, cursor, facility_id: int, notice_id: int, schedule: dict, valid_month: str) -> int:
         """스케줄 저장"""
         day_type = schedule.get("day_type", "")
         season = schedule.get("season") or None  # 빈 문자열 -> None
 
         cursor.execute(
-            """INSERT INTO swim_schedule (facility_id, day_type, season, valid_month)
-               VALUES (%s, %s, %s, %s)""",
-            (facility_id, day_type, season, valid_month)
+            """INSERT INTO swim_schedule (facility_id, notice_id, day_type, season, valid_month)
+               VALUES (%s, %s, %s, %s, %s)""",
+            (facility_id, notice_id, day_type, season, valid_month)
         )
         return cursor.lastrowid
 
