@@ -9,6 +9,7 @@ from typing import Optional
 from infrastructure.config import settings
 from infrastructure.config.logging_config import get_logger
 from core.parser.llm.prompts import EXTRACTION_PROMPT
+from core.parser.llm.validator import ScheduleValidator, validate_and_fix
 from core.models.parser import ParsedScheduleData
 
 logger = get_logger(__name__)
@@ -97,6 +98,23 @@ class LLMParser:
                 result["source_url"] = source_url
                 parsed_data = ParsedScheduleData.from_dict(result)
                 logger.info(f"파싱 성공: {parsed_data.facility_name}")
+
+                # 검증 및 자동 수정
+                validator = ScheduleValidator()
+                is_valid, warnings, errors = validator.validate(parsed_data)
+
+                if not is_valid:
+                    logger.warning(f"파싱 결과 검증 실패: {errors}")
+                    # 자동 수정 시도
+                    parsed_data = validate_and_fix(parsed_data)
+
+                    # 재검증
+                    is_valid, warnings, errors = validator.validate(parsed_data)
+                    if is_valid:
+                        logger.info("자동 수정 후 검증 성공")
+                    else:
+                        logger.error(f"자동 수정 후에도 검증 실패: {errors}")
+
                 return parsed_data
 
             return None
