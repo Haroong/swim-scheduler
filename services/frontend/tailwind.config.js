@@ -8,6 +8,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Pretendard', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        display: ['Raleway', 'Montserrat', 'Pretendard', 'sans-serif'],
       },
       colors: {
         // Legacy primary (기존 코드 호환용)
