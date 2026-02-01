@@ -88,10 +88,10 @@ class Settings(BaseSettings):
     LOG_FILE_MAX_BYTES: int = 10_485_760  # 10MB
     LOG_FILE_BACKUP_COUNT: int = 5
 
-    # Loki 설정 (프로덕션 환경에서만 사용)
-    LOKI_ENABLED: bool = False
-    LOKI_URL: str = "http://loki:3100/loki/api/v1/push"
-    LOKI_TAGS: dict = {"application": "swim-scheduler-parser"}
+    # Loki 설정 (로컬/프로덕션 모두 사용)
+    LOKI_ENABLED: bool = True
+    LOKI_URL: str = "http://localhost:3100/loki/api/v1/push"
+    LOKI_TAGS: dict = {"application": "swim-scheduler-parser", "env": "local"}
 
     # ===================================================================
     # 파싱 설정
