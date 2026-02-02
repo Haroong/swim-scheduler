@@ -182,7 +182,16 @@ class ParsingService:
                 if keyword in filename:
                     score -= 20
 
-            # HWP 파일 약간 선호 (텍스트 추출이 더 안정적)
+            # 파일명에서 날짜 추출 (YYYYMMDD 형식)
+            import re
+            date_match = re.search(r'(\d{8})', filename)
+            if date_match:
+                # 날짜를 점수에 반영 (최신 파일이 높은 점수)
+                # 예: 20260115 -> +20260115 (날짜를 직접 점수로 사용)
+                date_score = int(date_match.group(1))
+                score += date_score
+
+            # HWP 파일 약간 선호 (텍스트 추출이 더 안정적) - 날짜보다 우선순위 낮음
             if fp.suffix.lower() == ".hwp":
                 score += 1
 

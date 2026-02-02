@@ -13,6 +13,7 @@ class ContentValidator:
     SWIM_KEYWORDS = [
         "자유수영",
         "월 자유수영",  # 진도표에서 사용
+        "일일자유",  # SNHDC에서 사용
         "일일발권",
         "일일이용",
         "평일",
@@ -55,7 +56,7 @@ class ContentValidator:
 
         # 자유수영 핵심 키워드 확인
         has_core_keyword = ("자유수영" in text or "월 자유수영" in text or
-                           "일일발권" in text or "일일이용" in text)
+                           "일일자유" in text or "일일발권" in text or "일일이용" in text)
 
         # 키워드 개수 확인
         keyword_count = sum(1 for kw in self.SWIM_KEYWORDS if kw in text)
