@@ -53,9 +53,29 @@ CREATE TABLE IF NOT EXISTS fee (
     FOREIGN KEY (facility_id) REFERENCES facility(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 6. facility_closure (휴무일)
+CREATE TABLE IF NOT EXISTS facility_closure (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    facility_id INT NOT NULL,
+    notice_id INT,
+    valid_month VARCHAR(7) NOT NULL,          -- YYYY-MM
+    closure_type ENUM('regular', 'holiday', 'specific_date') NOT NULL,
+    -- 정기휴무 (regular)
+    day_of_week ENUM('월요일', '화요일', '수요일', '목요일', '금요일', '토요일', '일요일'),
+    week_pattern VARCHAR(20),                  -- "2,4" = 2,4주차, NULL = 매주
+    -- 특정날짜 휴무 (specific_date)
+    closure_date DATE,
+    -- 공통
+    reason VARCHAR(200),
+    FOREIGN KEY (facility_id) REFERENCES facility(id) ON DELETE CASCADE,
+    FOREIGN KEY (notice_id) REFERENCES notice(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- 인덱스 생성
 CREATE INDEX IF NOT EXISTS idx_schedule_facility ON swim_schedule(facility_id);
 CREATE INDEX IF NOT EXISTS idx_schedule_valid_month ON swim_schedule(valid_month);
 CREATE INDEX IF NOT EXISTS idx_session_schedule ON swim_session(schedule_id);
 CREATE INDEX IF NOT EXISTS idx_notice_facility ON notice(facility_id);
 CREATE INDEX IF NOT EXISTS idx_fee_facility ON fee(facility_id);
+CREATE INDEX IF NOT EXISTS idx_closure_facility_month ON facility_closure(facility_id, valid_month);
+CREATE INDEX IF NOT EXISTS idx_closure_date ON facility_closure(closure_date);

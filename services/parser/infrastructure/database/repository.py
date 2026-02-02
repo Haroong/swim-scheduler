@@ -80,6 +80,10 @@ class SwimRepository:
             fees = data.get("fees", [])
             self._save_fees(cursor, facility_id, fees)
 
+            # 5. closure 저장
+            closures = data.get("closures", [])
+            self._save_closures(cursor, facility_id, notice_id, valid_date, closures)
+
             self._commit()
             logger.info(f"저장 완료: {facility_name}")
             return True
@@ -194,6 +198,34 @@ class SwimRepository:
                     fee.get("note", ""),
                 )
             )
+
+    def _save_closures(self, cursor, facility_id: int, notice_id: int,
+                       valid_month: str, closures: List[dict]):
+        """휴무일 일괄 저장"""
+        for closure in closures:
+            closure_type = closure.get("closure_type")
+            day_of_week = closure.get("day_of_week")
+            week_pattern = closure.get("week_pattern")
+            reason = closure.get("reason", "")
+            dates = closure.get("dates", [])
+
+            if closure_type == "specific_date" and dates:
+                # 특정 날짜 휴무: 각 날짜별로 레코드 생성
+                for date_str in dates:
+                    cursor.execute(
+                        """INSERT INTO facility_closure
+                           (facility_id, notice_id, valid_month, closure_type, closure_date, reason)
+                           VALUES (%s, %s, %s, %s, %s, %s)""",
+                        (facility_id, notice_id, valid_month, closure_type, date_str, reason)
+                    )
+            else:
+                # 정기휴무(regular) 또는 공휴일(holiday)
+                cursor.execute(
+                    """INSERT INTO facility_closure
+                       (facility_id, notice_id, valid_month, closure_type, day_of_week, week_pattern, reason)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                    (facility_id, notice_id, valid_month, closure_type, day_of_week, week_pattern, reason)
+                )
 
     def _convert_valid_month(self, valid_month: str) -> str:
         """

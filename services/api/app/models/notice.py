@@ -23,6 +23,7 @@ class Notice(Base):
 
     # Relationships
     facility = relationship("Facility", back_populates="notices")
+    closures = relationship("FacilityClosure", back_populates="notice")
 
     def __repr__(self):
         return f"<Notice(id={self.id}, title='{self.title[:30]}...')>"

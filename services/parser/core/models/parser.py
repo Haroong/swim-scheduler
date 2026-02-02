@@ -58,6 +58,16 @@ class FeeData:
 
 
 @dataclass
+class ClosureData:
+    """휴무일 데이터"""
+    closure_type: str                        # "regular", "holiday", "specific_date"
+    day_of_week: str | None = None           # 정기휴무 요일 (월요일~일요일)
+    week_pattern: str | None = None          # 주차 패턴 ("2,4" = 2,4주차, None = 매주)
+    dates: list[str] | None = None           # 특정 날짜 목록 ["2026-02-16", ...]
+    reason: str = ""                         # 휴무 사유
+
+
+@dataclass
 class ParsedScheduleData:
     """
     파싱 결과 DTO
@@ -67,6 +77,7 @@ class ParsedScheduleData:
     facility_name: str                              # 시설명
     schedules: list[ScheduleData] = field(default_factory=list)  # 요일별 스케줄
     fees: list[FeeData] = field(default_factory=list)           # 이용료
+    closures: list[ClosureData] = field(default_factory=list)   # 휴무일 정보
     valid_month: str = ""                           # 적용 월 (예: 2026년 1월)
     notes: list[str] = field(default_factory=list)  # 기타 안내사항
     source_url: str = ""                            # 원본 URL
@@ -98,6 +109,16 @@ class ParsedScheduleData:
             "fees": [
                 {"category": f.category, "price": f.price, "note": f.note}
                 for f in self.fees
+            ],
+            "closures": [
+                {
+                    "closure_type": c.closure_type,
+                    "day_of_week": c.day_of_week,
+                    "week_pattern": c.week_pattern,
+                    "dates": c.dates,
+                    "reason": c.reason
+                }
+                for c in self.closures
             ],
             "valid_month": self.valid_month,
             "notes": self.notes,
@@ -137,10 +158,22 @@ class ParsedScheduleData:
             for f in data.get("fees", [])
         ]
 
+        closures = [
+            ClosureData(
+                closure_type=c["closure_type"],
+                day_of_week=c.get("day_of_week"),
+                week_pattern=c.get("week_pattern"),
+                dates=c.get("dates"),
+                reason=c.get("reason", "")
+            )
+            for c in data.get("closures", [])
+        ]
+
         return cls(
             facility_name=data.get("facility_name", ""),
             schedules=schedules,
             fees=fees,
+            closures=closures,
             valid_month=data.get("valid_month", ""),
             notes=data.get("notes", []),
             source_url=data.get("source_url", ""),

@@ -1,11 +1,86 @@
 """
 LLM 파서용 프롬프트 정의
+
+이 파일에는 두 개의 분리된 프롬프트가 정의되어 있습니다:
+1. EXTRACTION_PROMPT: 자유수영(일일발권) 스케줄 정보 추출 전용
+2. CLOSURE_EXTRACTION_PROMPT: 시설 휴무일 정보 추출 전용
+
+각 프롬프트는 단일 책임을 가지며, 서로의 영역을 침범하지 않습니다.
+"""
+
+CLOSURE_EXTRACTION_PROMPT = """당신은 수영장 공지사항에서 휴무일 정보만을 추출하는 전문가입니다.
+
+아래 텍스트에서 시설의 휴무일/휴관일 정보만 추출하여 JSON 형식으로 반환해주세요.
+
+**중요: 이 프롬프트의 책임은 오직 휴무일 정보 추출입니다.**
+- 자유수영, 강습, 요금, 시간표 등 운영 정보는 모두 무시하세요.
+- 오직 "휴무", "휴관", "휴장", "운영 중단" 관련 정보만 추출합니다.
+
+추출할 정보:
+1. facility_name: 시설명 (수영장 이름)
+2. closures: 휴무일 정보 배열
+
+closures 배열의 각 요소는 다음 세 가지 타입 중 하나입니다:
+
+1. regular (정기휴무):
+   - closure_type: "regular"
+   - day_of_week: 휴무 요일 (월요일, 화요일, 수요일, 목요일, 금요일, 토요일, 일요일)
+   - week_pattern: 주차 패턴 ("2,4" = 매월 2,4주차, null = 매주)
+   - reason: 휴무 사유
+
+2. holiday (공휴일 휴무):
+   - closure_type: "holiday"
+   - reason: "공휴일 휴관" 등의 사유
+   - (dates 필드 없음 - 공휴일 날짜 계산은 코드에서 처리)
+
+3. specific_date (특정 날짜 휴무):
+   - closure_type: "specific_date"
+   - dates: YYYY-MM-DD 형식의 날짜 배열
+   - reason: 휴무 사유
+
+휴무일 해석 규칙:
+- "매주 X요일 휴장/휴관" → regular, week_pattern은 null
+- "매월 N주 X요일 휴관" → regular, week_pattern에 해당 주차 (예: "2,4")
+- "격주 X요일 휴관" → regular, week_pattern은 "1,3" 또는 "2,4"로 해석
+- "공휴일 휴관" → holiday
+- "N월 N일 휴관" → specific_date, dates에 YYYY-MM-DD 형식으로
+- "N월 N일~N일 휴관" → specific_date, 해당 기간의 모든 날짜를 dates 배열에 포함
+- 휴무일 정보가 전혀 없으면 closures는 빈 배열 []로 반환
+
+**절대 금지 사항:**
+- 문서에 명시되지 않은 휴무일을 추론하거나 생성하지 마세요.
+- 현재 날짜를 기준으로 임의의 휴무일을 만들지 마세요.
+- 운영 시간, 요금, 자유수영 정보는 추출하지 마세요.
+
+응답 형식 (JSON만 반환, 다른 텍스트 없이):
+{
+  "facility_name": "시설명",
+  "closures": [
+    {"closure_type": "regular", "day_of_week": "월요일", "week_pattern": null, "reason": "정기휴무"},
+    {"closure_type": "regular", "day_of_week": "일요일", "week_pattern": "2,4", "reason": "정기휴장"},
+    {"closure_type": "holiday", "reason": "공휴일 휴관"},
+    {"closure_type": "specific_date", "dates": ["2026-02-16", "2026-02-17", "2026-02-18"], "reason": "설날 연휴"}
+  ]
+}
+
+휴무일 정보가 없는 경우:
+{
+  "facility_name": "시설명",
+  "closures": []
+}
+
+텍스트:
 """
 
 EXTRACTION_PROMPT = """당신은 수영장 자유수영 안내문에서 정보를 추출하는 전문가입니다.
 
 아래 텍스트에서 자유수영 관련 정보만 추출하여 JSON 형식으로 반환해주세요.
 강습 프로그램 정보는 제외하고, 오직 자유수영(일일발권) 정보만 추출합니다.
+
+**중요: 이 프롬프트의 책임은 오직 자유수영 스케줄 정보 추출입니다.**
+- 휴무일, 휴관일, 공휴일 휴무 정보는 이 프롬프트의 책임이 아닙니다.
+- 문서에 휴무 관련 문구가 있더라도 완전히 무시하세요.
+- "매주 X요일 휴관", "공휴일 휴무", "N월 N일 휴장" 등의 정보는 추출하지 마세요.
 
 추출할 정보:
 1. facility_name: 시설명 (수영장 이름)
@@ -124,6 +199,8 @@ EXTRACTION_PROMPT = """당신은 수영장 자유수영 안내문에서 정보�
   ],
   "notes": ["48개월 미만 영아 출입 불가"]
 }
+
+**주의: closures 필드는 이 프롬프트의 출력에 포함하지 마세요. 휴무일 정보는 별도의 휴무일 전용 프롬프트에서 처리됩니다.**
 
 텍스트:
 """

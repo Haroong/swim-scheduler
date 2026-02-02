@@ -8,6 +8,7 @@ from .facility import Facility
 from .schedule import SwimSchedule, SwimSession
 from .fee import Fee
 from .notice import Notice
+from .closure import FacilityClosure
 
 __all__ = [
     "Base",
@@ -16,4 +17,5 @@ __all__ = [
     "SwimSession",
     "Fee",
     "Notice",
+    "FacilityClosure",
 ]

@@ -9,7 +9,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import Facility, SwimSchedule, SwimSession, Notice
-from app.utils import get_season_from_month, should_include_schedule, should_include_session
+from app.utils import get_season_from_month, should_include_schedule, should_include_session, check_facility_closure
 
 logger = logging.getLogger(__name__)
 
@@ -267,6 +267,11 @@ class ScheduleService:
                     )
                     notice = db.execute(notice_stmt).scalar_one_or_none()
 
+                    # 휴무일 체크
+                    is_closed, closure_reason = check_facility_closure(
+                        db, facility_id, date_obj, valid_month
+                    )
+
                     facilities_map[facility_id] = {
                         "facility_id": facility_id,
                         "facility_name": facility_name,
@@ -276,8 +281,18 @@ class ScheduleService:
                         "valid_month": schedule.valid_month,
                         "sessions": [],
                         "source_url": notice.source_url if notice else None,
-                        "notice_title": notice.title if notice else None
+                        "notice_title": notice.title if notice else None,
+                        "is_closed": is_closed,
+                        "closure_reason": closure_reason
                     }
+
+                    # 휴무일이면 세션 추가 건너뛰기
+                    if is_closed:
+                        continue
+
+                # 휴무일이면 세션 추가 건너뛰기
+                if facilities_map[facility_id].get("is_closed"):
+                    continue
 
                 # 세션 추가 (applicable_days 필터링 적용)
                 for session in schedule.sessions:
