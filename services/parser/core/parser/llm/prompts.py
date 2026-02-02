@@ -40,6 +40,7 @@ EXTRACTION_PROMPT = """당신은 수영장 자유수영 안내문에서 정보�
      - end_time: 종료 시간 (HH:MM 형식)
      - capacity: 정원 (숫자, 없으면 null)
      - lanes: 레인 수 (숫자, 없으면 null)
+     - applicable_days: 적용 요일 (특정 요일에만 적용되면 "월", "수", "월,수,금" 등, 해당 day_type 전체에 적용되면 null)
 4. fees: 이용료 정보 배열
    - category: 대상 (성인, 청소년, 어린이 등)
    - price: 금액 (숫자만, 원 단위)
@@ -76,6 +77,13 @@ EXTRACTION_PROMPT = """당신은 수영장 자유수영 안내문에서 정보�
    - [ ] 각 요일의 시간대 개수가 합리적인가? (주말은 보통 3-4개, 평일은 4-5개)
    - [ ] 새벽 6시 시간대는 평일에만 있는가?
 
+6. **특정 요일만 적용되는 세션 처리 (매우 중요!)**:
+   - "수요일", "월요일", "금요일" 등 특정 요일명이 세션 앞에 붙어있으면 해당 요일에만 적용
+   - 예: "수요일 06:00~06:50 50명" → day_type은 "평일", applicable_days는 "수"
+   - 예: "월,수,금 10:00~11:00 30명" → day_type은 "평일", applicable_days는 "월,수,금"
+   - "상동"이라고 표시된 경우 시간은 동일하고 정원만 다른 것이므로, 앞의 시간대를 참조
+   - 특정 요일 언급 없이 "평일"로만 표기된 세션은 applicable_days를 null로 설정
+
 예시 케이스:
 문서에 "평일: 16:00~17:50 80명, 토요일/일요일: 10:00~11:50 100명, 13:00~14:50 100명, 16:00~17:50 100명"이 있다면
 → 평일에는 16:00~17:50(80명)만, 토/일에는 3개 시간대(각 100명)를 할당
@@ -90,7 +98,8 @@ EXTRACTION_PROMPT = """당신은 수영장 자유수영 안내문에서 정보�
       "season": "",
       "season_months": "",
       "sessions": [
-        {"session_name": "아침", "start_time": "08:00", "end_time": "08:50", "capacity": 30, "lanes": 6}
+        {"session_name": "1부", "start_time": "06:00", "end_time": "06:50", "capacity": 24, "lanes": null, "applicable_days": null},
+        {"session_name": "수요일", "start_time": "06:00", "end_time": "06:50", "capacity": 50, "lanes": null, "applicable_days": "수"}
       ]
     },
     {
@@ -98,7 +107,7 @@ EXTRACTION_PROMPT = """당신은 수영장 자유수영 안내문에서 정보�
       "season": "동절기",
       "season_months": "11~2월",
       "sessions": [
-        {"session_name": "1부", "start_time": "06:30", "end_time": "08:00", "capacity": 80, "lanes": 6}
+        {"session_name": "1부", "start_time": "06:30", "end_time": "08:00", "capacity": 80, "lanes": 6, "applicable_days": null}
       ]
     },
     {
@@ -106,7 +115,7 @@ EXTRACTION_PROMPT = """당신은 수영장 자유수영 안내문에서 정보�
       "season": "하절기",
       "season_months": "3~10월",
       "sessions": [
-        {"session_name": "1부", "start_time": "06:30", "end_time": "08:00", "capacity": 80, "lanes": 6}
+        {"session_name": "1부", "start_time": "06:30", "end_time": "08:00", "capacity": 80, "lanes": 6, "applicable_days": null}
       ]
     }
   ],

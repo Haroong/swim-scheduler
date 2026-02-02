@@ -40,6 +40,7 @@ class SwimSession(Base):
     end_time = Column(Time, nullable=False)
     capacity = Column(Integer, nullable=True)
     lanes = Column(Integer, nullable=True)
+    applicable_days = Column(String(20), nullable=True)  # 적용 요일 (NULL=전체, "수"=수요일만)
 
     # Relationships
     schedule = relationship("SwimSchedule", back_populates="sessions")

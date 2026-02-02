@@ -168,8 +168,8 @@ class SwimRepository:
         for session in sessions:
             cursor.execute(
                 """INSERT INTO swim_session
-                   (schedule_id, session_name, start_time, end_time, capacity, lanes)
-                   VALUES (%s, %s, %s, %s, %s, %s)""",
+                   (schedule_id, session_name, start_time, end_time, capacity, lanes, applicable_days)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s)""",
                 (
                     schedule_id,
                     session.get("session_name"),
@@ -177,6 +177,7 @@ class SwimRepository:
                     session.get("end_time"),
                     session.get("capacity"),
                     session.get("lanes"),
+                    session.get("applicable_days"),
                 )
             )
 

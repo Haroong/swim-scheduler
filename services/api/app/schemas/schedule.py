@@ -12,6 +12,7 @@ class SessionSchema(BaseModel):
     end_time: str
     capacity: Optional[int] = None
     lanes: Optional[int] = None
+    applicable_days: Optional[str] = None  # 적용 요일 (NULL=전체, "수"=수요일만)
 
 
 class ScheduleDetailSchema(BaseModel):

@@ -37,6 +37,7 @@ class SessionData:
     end_time: str              # 종료 시간 (HH:MM)
     capacity: int | None = None    # 정원
     lanes: int | None = None       # 레인 수
+    applicable_days: str | None = None  # 적용 요일 (None=전체, "수"=수요일만, "월,수,금"=월수금)
 
 
 @dataclass
@@ -86,7 +87,8 @@ class ParsedScheduleData:
                             "start_time": sess.start_time,
                             "end_time": sess.end_time,
                             "capacity": sess.capacity,
-                            "lanes": sess.lanes
+                            "lanes": sess.lanes,
+                            "applicable_days": sess.applicable_days
                         }
                         for sess in s.sessions
                     ]
@@ -114,7 +116,8 @@ class ParsedScheduleData:
                     start_time=sess["start_time"],
                     end_time=sess["end_time"],
                     capacity=sess.get("capacity"),
-                    lanes=sess.get("lanes")
+                    lanes=sess.get("lanes"),
+                    applicable_days=sess.get("applicable_days")
                 )
                 for sess in s.get("sessions", [])
             ]

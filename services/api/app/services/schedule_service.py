@@ -9,7 +9,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import Facility, SwimSchedule, SwimSession, Notice
-from app.utils import get_season_from_month, should_include_schedule
+from app.utils import get_season_from_month, should_include_schedule, should_include_session
 
 logger = logging.getLogger(__name__)
 
@@ -171,7 +171,8 @@ class ScheduleService:
                         "start_time": str(session.start_time),
                         "end_time": str(session.end_time),
                         "capacity": session.capacity,
-                        "lanes": session.lanes
+                        "lanes": session.lanes,
+                        "applicable_days": session.applicable_days
                     })
 
             # 결과 변환
@@ -278,8 +279,12 @@ class ScheduleService:
                         "notice_title": notice.title if notice else None
                     }
 
-                # 세션 추가
+                # 세션 추가 (applicable_days 필터링 적용)
                 for session in schedule.sessions:
+                    # 해당 요일에 적용되는 세션만 포함
+                    if not should_include_session(session.applicable_days, weekday):
+                        continue
+
                     facilities_map[facility_id]["sessions"].append({
                         "session_name": session.session_name,
                         "start_time": str(session.start_time),
