@@ -116,13 +116,23 @@ function DailySchedulePage() {
                   <svg className="w-6 h-6 text-ocean-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
                   </svg>
-                  운영 중인 수영장
+                  수영장 현황
                 </h2>
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-ocean-50 to-wave-50 text-ocean-700 rounded-xl text-sm font-bold border border-ocean-200">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  {schedules.length}개
+                <div className="flex items-center gap-2">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-ocean-50 to-wave-50 text-ocean-700 rounded-lg text-sm font-bold border border-ocean-200">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    운영 {schedules.filter(s => !s.is_closed).length}개
+                  </div>
+                  {schedules.filter(s => s.is_closed).length > 0 && (
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-500 rounded-lg text-sm font-bold border border-slate-200">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      휴관 {schedules.filter(s => s.is_closed).length}개
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -133,24 +143,30 @@ function DailySchedulePage() {
                   className="bg-white rounded-2xl shadow-soft border border-slate-200 overflow-hidden hover:shadow-lg transition-all flex"
                 >
                   {/* Left Color Bar */}
-                  <div className={`w-2 ${index % 3 === 0 ? 'bg-gradient-to-b from-ocean-500 to-wave-500' : index % 3 === 1 ? 'bg-gradient-to-b from-wave-500 to-emerald-500' : 'bg-gradient-to-b from-emerald-500 to-teal-500'}`} />
+                  <div className={`w-2 ${schedule.is_closed ? 'bg-gradient-to-b from-slate-400 to-slate-500' : index % 3 === 0 ? 'bg-gradient-to-b from-ocean-500 to-wave-500' : index % 3 === 1 ? 'bg-gradient-to-b from-wave-500 to-emerald-500' : 'bg-gradient-to-b from-emerald-500 to-teal-500'}`} />
 
                   <div className="flex-1">
                   {/* Card Header */}
                   <div className="p-6 border-b border-slate-100">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
-                        <div className={`w-3 h-3 rounded-full ${index % 3 === 0 ? 'bg-ocean-500' : index % 3 === 1 ? 'bg-wave-500' : 'bg-emerald-500'}`} />
+                        <div className={`w-3 h-3 rounded-full ${schedule.is_closed ? 'bg-slate-400' : index % 3 === 0 ? 'bg-ocean-500' : index % 3 === 1 ? 'bg-wave-500' : 'bg-emerald-500'}`} />
                         <div>
-                          <h3 className="text-xl font-bold text-slate-800">
+                          <h3 className={`text-xl font-bold ${schedule.is_closed ? 'text-slate-500' : 'text-slate-800'}`}>
                             {schedule.facility_name}
                           </h3>
                           <div className="flex items-center gap-2 mt-2">
-                            <Badge variant={index % 3 === 0 ? 'ocean' : index % 3 === 1 ? 'wave' : 'emerald'}>
-                              {schedule.day_type}
-                            </Badge>
-                            {schedule.season && (
-                              <Badge variant="wave">{schedule.season}</Badge>
+                            {schedule.is_closed ? (
+                              <Badge variant="slate">휴관</Badge>
+                            ) : (
+                              <>
+                                <Badge variant={index % 3 === 0 ? 'ocean' : index % 3 === 1 ? 'wave' : 'emerald'}>
+                                  {schedule.day_type}
+                                </Badge>
+                                {schedule.season && (
+                                  <Badge variant="wave">{schedule.season}</Badge>
+                                )}
+                              </>
                             )}
                           </div>
                         </div>
@@ -158,17 +174,30 @@ function DailySchedulePage() {
                     </div>
                   </div>
 
-                  {/* Sessions Grid */}
+                  {/* Sessions Grid or Closure Notice */}
                   <div className="p-6">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {schedule.sessions.map((session, idx) => (
-                        <SessionCard
-                          key={idx}
-                          session={session}
-                          colorScheme={index % 3 === 0 ? 'ocean' : index % 3 === 1 ? 'wave' : 'emerald'}
-                        />
-                      ))}
-                    </div>
+                    {schedule.is_closed ? (
+                      <div className="flex flex-col items-center justify-center py-8 bg-slate-50 rounded-xl">
+                        <svg className="w-12 h-12 text-slate-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6" />
+                        </svg>
+                        <p className="text-lg font-bold text-slate-500 mb-1">휴관</p>
+                        {schedule.closure_reason && (
+                          <p className="text-sm text-slate-400">{schedule.closure_reason}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {schedule.sessions.map((session, idx) => (
+                          <SessionCard
+                            key={idx}
+                            session={session}
+                            colorScheme={index % 3 === 0 ? 'ocean' : index % 3 === 1 ? 'wave' : 'emerald'}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Notes Section */}

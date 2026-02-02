@@ -260,7 +260,12 @@ function CalendarView() {
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        {dailySchedules.length}개 수영장 운영
+                        운영 {dailySchedules.filter(s => !s.is_closed).length}개
+                        {dailySchedules.filter(s => s.is_closed).length > 0 && (
+                          <span className="opacity-80">
+                            · 휴관 {dailySchedules.filter(s => s.is_closed).length}개
+                          </span>
+                        )}
                       </>
                     ) : (
                       <>
@@ -295,34 +300,55 @@ function CalendarView() {
                     >
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-2">
-                          <div className={`w-3 h-3 rounded-full ${idx % 3 === 0 ? 'bg-ocean-500' : idx % 3 === 1 ? 'bg-wave-500' : 'bg-emerald-500'}`} />
-                          <h4 className="font-bold text-slate-800 text-lg">
+                          <div className={`w-3 h-3 rounded-full ${schedule.is_closed ? 'bg-slate-400' : idx % 3 === 0 ? 'bg-ocean-500' : idx % 3 === 1 ? 'bg-wave-500' : 'bg-emerald-500'}`} />
+                          <h4 className={`font-bold text-lg ${schedule.is_closed ? 'text-slate-500' : 'text-slate-800'}`}>
                             {schedule.facility_name}
                           </h4>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <Badge variant="ocean" size="sm">{schedule.day_type}</Badge>
-                          {schedule.season && (
-                            <Badge variant="wave" size="sm">{schedule.season}</Badge>
+                          {schedule.is_closed ? (
+                            <Badge variant="slate" size="sm">휴관</Badge>
+                          ) : (
+                            <>
+                              <Badge variant="ocean" size="sm">{schedule.day_type}</Badge>
+                              {schedule.season && (
+                                <Badge variant="wave" size="sm">{schedule.season}</Badge>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 gap-2">
-                        {schedule.sessions.map((session, sidx) => (
-                          <div
-                            key={sidx}
-                            className="flex items-center justify-between bg-white rounded-xl p-3.5 shadow-sm border border-slate-100"
-                          >
-                            <span className="font-semibold text-slate-700 text-sm">
-                              {session.session_name}
-                            </span>
-                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-ocean-600 to-wave-600 font-bold text-sm">
-                              {session.start_time.substring(0, 5)} - {session.end_time.substring(0, 5)}
-                            </span>
+                      {schedule.is_closed ? (
+                        <div className="flex items-center justify-center py-4 bg-slate-50 rounded-xl">
+                          <div className="text-center">
+                            <svg className="w-8 h-8 text-slate-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6" />
+                            </svg>
+                            <p className="text-sm font-semibold text-slate-500">휴관</p>
+                            {schedule.closure_reason && (
+                              <p className="text-xs text-slate-400 mt-1">{schedule.closure_reason}</p>
+                            )}
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-2">
+                          {schedule.sessions.map((session, sidx) => (
+                            <div
+                              key={sidx}
+                              className="flex items-center justify-between bg-white rounded-xl p-3.5 shadow-sm border border-slate-100"
+                            >
+                              <span className="font-semibold text-slate-700 text-sm">
+                                {session.session_name}
+                              </span>
+                              <span className="text-transparent bg-clip-text bg-gradient-to-r from-ocean-600 to-wave-600 font-bold text-sm">
+                                {session.start_time.substring(0, 5)} - {session.end_time.substring(0, 5)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
                       {parseNotes(schedule.notes).length > 0 && (
                         <div className="mt-3 pt-3 border-t border-slate-200">

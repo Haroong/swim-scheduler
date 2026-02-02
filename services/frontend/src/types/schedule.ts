@@ -46,6 +46,8 @@ export interface DailySchedule {
   sessions: Session[];
   source_url?: string;
   notes?: string;
+  is_closed: boolean;
+  closure_reason?: string | null;
 }
 
 export interface CalendarData {
