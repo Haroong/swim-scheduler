@@ -119,11 +119,6 @@ class Facility(Enum):
         return cls.by_organization(Organization.SNHDC)
 
     @classmethod
-    def all_names(cls) -> List[str]:
-        """모든 시설명 목록"""
-        return [f.name for f in cls]
-
-    @classmethod
     def find_by_name(cls, name: str) -> Optional["Facility"]:
         """시설명으로 검색 (별칭 포함)"""
         for facility in cls:
@@ -131,15 +126,6 @@ class Facility(Enum):
                 return facility
             if name in facility.aliases:
                 return facility
-        return None
-
-    @classmethod
-    def find_by_url_code(cls, url_code: str, org: Optional[Organization] = None) -> Optional["Facility"]:
-        """URL 코드로 검색"""
-        for facility in cls:
-            if facility.url_code == url_code:
-                if org is None or facility.organization == org:
-                    return facility
         return None
 
 

@@ -152,19 +152,6 @@ class CrawlerFactory:
         return list(cls._crawlers.keys())
 
     @classmethod
-    def is_registered(cls, org: Organization) -> bool:
-        """
-        기관 등록 여부 확인
-
-        Args:
-            org: 기관 (Organization enum)
-
-        Returns:
-            등록 여부
-        """
-        return org.value in cls._crawlers
-
-    @classmethod
     def clear(cls):
         """등록된 크롤러 모두 제거 (테스트용)"""
         cls._crawlers.clear()

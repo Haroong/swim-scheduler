@@ -109,41 +109,6 @@ class ScheduleValidator:
                     f"주말에 늦은 저녁 시간대 {weekend_late_count}개 발견"
                 )
 
-    def _times_match(self, actual: List[str], expected: List[str], tolerance_minutes: int = 30) -> bool:
-        """
-        시간 비교 (약간의 오차 허용)
-
-        Args:
-            actual: 실제 시간 리스트
-            expected: 예상 시간 리스트
-            tolerance_minutes: 허용 오차 (분)
-
-        Returns:
-            일치 여부
-        """
-        if len(actual) != len(expected):
-            return False
-
-        for a, e in zip(sorted(actual), sorted(expected)):
-            try:
-                # 시간 문자열을 분 단위로 변환
-                a_minutes = self._time_to_minutes(a)
-                e_minutes = self._time_to_minutes(e)
-
-                if abs(a_minutes - e_minutes) > tolerance_minutes:
-                    return False
-            except:
-                return False
-
-        return True
-
-    def _time_to_minutes(self, time_str: str) -> int:
-        """시간 문자열을 분 단위로 변환 (HH:MM)"""
-        parts = time_str.split(":")
-        if len(parts) != 2:
-            return 0
-        return int(parts[0]) * 60 + int(parts[1])
-
     def _validate_general(self, parsed_data: ParsedScheduleData):
         """일반적인 검증"""
 
