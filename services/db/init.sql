@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS swim_session (
     end_time TIME NOT NULL,
     capacity INT,
     lanes INT,
+    applicable_days VARCHAR(20),  -- 적용 요일 (NULL=전체, "수"=수요일만, "월,수,금"=월수금)
     FOREIGN KEY (schedule_id) REFERENCES swim_schedule(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
