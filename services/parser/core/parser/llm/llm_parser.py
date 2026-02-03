@@ -77,14 +77,25 @@ class LLMParser:
         # 자유수영 전용 프롬프트 구성
         prompt = EXTRACTION_PROMPT + raw_text[:8000]  # 토큰 제한 고려
 
+        if notice_date:
+            # 등록일에서 연도와 월 추출
+            date_match = re.search(r'(\d{4})-(\d{2})', notice_date)
+            if date_match:
+                reg_year, reg_month = int(date_match.group(1)), int(date_match.group(2))
+                prompt += f"\n\n**★★★ 연도 결정 필수 정보 ★★★**"
+                prompt += f"\n- 공지 등록일: {notice_date} (등록 연도: {reg_year}년, 등록 월: {reg_month}월)"
+                prompt += f"\n- 문서에 '1월', '2월', '3월' 등 1~3월이 나오고, 등록일이 10~12월이면:"
+                prompt += f"\n  → valid_month는 반드시 **{reg_year + 1}년** 으로 설정!"
+                prompt += f"\n  예) 등록일 {reg_year}-12-29, 프로그램 '1월' → valid_month = '{reg_year + 1}년 1월'"
+                prompt += f"\n- 등록일({notice_date})보다 과거의 valid_month는 절대 불가!"
+            else:
+                prompt += f"\n힌트: 이 공지는 '{notice_date}'에 등록되었습니다."
+
         if notice_title:
-            prompt += f"\n\n**중요 힌트 (최우선)**: 공지사항 제목은 '{notice_title}'입니다. valid_month 추출 시 이 제목의 연도와 월을 최우선으로 사용하세요."
+            prompt += f"\n\n공지사항 제목: '{notice_title}'"
 
         if facility_name:
-            prompt += f"\n힌트: 시설명은 '{facility_name}'입니다."
-
-        if notice_date:
-            prompt += f"\n힌트: 이 공지는 '{notice_date}'에 등록되었습니다."
+            prompt += f"\n시설명: '{facility_name}'"
 
         try:
             response = self.client.messages.create(
