@@ -61,11 +61,15 @@ services:
       DB_NAME: ${DB_NAME:-swim_scheduler}
       API_HOST: 0.0.0.0
       API_PORT: 8000
+      LOKI_ENABLED: "true"
+      LOKI_URL: http://loki:3100/loki/api/v1/push
     networks:
       - swim-network
     depends_on:
       db:
         condition: service_healthy
+      loki:
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -84,8 +88,6 @@ services:
       - swim-network
     depends_on:
       - api
-    environment:
-      VITE_API_BASE_URL: http://localhost:${API_PORT:-8000}
 
   # Loki (로그 수집)
   loki:
