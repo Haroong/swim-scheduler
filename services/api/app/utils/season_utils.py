@@ -50,9 +50,12 @@ def should_include_schedule(schedule_season: Optional[str], target_season: str) 
     """
     스케줄이 대상 계절에 포함되어야 하는지 판단
     - Empty/None season: 항상 True (연중 운영)
+    - 임시운영: 항상 True (계절 무관)
     - 일치하는 계절: True
     - 다른 계절: False
     """
     if not schedule_season:  # "", None
+        return True
+    if schedule_season == "임시운영":
         return True
     return schedule_season == target_season

@@ -17,7 +17,7 @@ class SwimSchedule(Base):
     facility_id = Column(Integer, ForeignKey('facility.id'), nullable=False)
     notice_id = Column(Integer, ForeignKey('notice.id', ondelete='CASCADE'), nullable=True)
     day_type = Column(SQLEnum('평일', '토요일', '일요일', name='day_type_enum'), nullable=False)
-    season = Column(SQLEnum('하절기', '동절기', name='season_enum'), nullable=True)
+    season = Column(SQLEnum('하절기', '동절기', '임시운영', name='season_enum'), nullable=True)
     valid_month = Column(String(7), nullable=False)  # YYYY-MM
 
     # Relationships
