@@ -61,8 +61,6 @@ services:
       DB_NAME: ${DB_NAME:-swim_scheduler}
       API_HOST: 0.0.0.0
       API_PORT: 8000
-    ports:
-      - "127.0.0.1:8000:8000"  # Nginx 리버스 프록시 전용 (localhost만 접근 가능)
     networks:
       - swim-network
     depends_on:
