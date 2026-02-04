@@ -293,7 +293,8 @@ function CalendarView() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {dailySchedules.map((schedule, idx) => (
+                  {/* 운영 중인 시설을 먼저 표시 */}
+                  {[...dailySchedules].sort((a, b) => Number(a.is_closed) - Number(b.is_closed)).map((schedule, idx) => (
                     <div
                       key={schedule.facility_id}
                       className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-2xl p-5 border border-slate-200 hover:shadow-md transition-all"

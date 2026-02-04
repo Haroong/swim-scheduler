@@ -136,8 +136,8 @@ function DailySchedulePage() {
                 </div>
               </div>
 
-              {/* Schedule Cards */}
-              {schedules.map((schedule, index) => (
+              {/* Schedule Cards - 운영 중인 시설을 먼저 표시 */}
+              {[...schedules].sort((a, b) => Number(a.is_closed) - Number(b.is_closed)).map((schedule, index) => (
                 <div
                   key={schedule.facility_id}
                   className="bg-white rounded-2xl shadow-soft border border-slate-200 overflow-hidden hover:shadow-lg transition-all flex"
