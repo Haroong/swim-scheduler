@@ -10,74 +10,108 @@ env:
   DOCKER_REGISTRY: ghcr.io
 
 jobs:
-  build-and-push:
-    name: Build Docker Images
+  # 메타데이터 추출 (공통)
+  prepare:
+    name: Prepare
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
+    outputs:
+      owner: ${{ steps.meta.outputs.owner }}
+      image_prefix: ${{ steps.meta.outputs.image_prefix }}
+      sha_short: ${{ steps.meta.outputs.sha_short }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Extract metadata
         id: meta
         run: |
-          # repository owner를 소문자로 변환 (Docker 이미지 태그 요구사항)
           OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           echo "owner=${OWNER_LC}" >> $GITHUB_OUTPUT
           echo "image_prefix=${OWNER_LC}/swim-scheduler" >> $GITHUB_OUTPUT
           echo "sha_short=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
 
-      - name: Build and push Parser image
-        uses: docker/build-push-action@v5
+  # 병렬 빌드
+  build-parser:
+    name: Build Parser
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v5
         with:
           context: ./services/parser
           file: ./services/parser/Dockerfile
           push: true
           tags: |
-            ${{ env.DOCKER_REGISTRY }}/${{ steps.meta.outputs.image_prefix }}-parser:latest
-            ${{ env.DOCKER_REGISTRY }}/${{ steps.meta.outputs.image_prefix }}-parser:${{ steps.meta.outputs.sha_short }}
+            ${{ env.DOCKER_REGISTRY }}/${{ needs.prepare.outputs.image_prefix }}-parser:latest
+            ${{ env.DOCKER_REGISTRY }}/${{ needs.prepare.outputs.image_prefix }}-parser:${{ needs.prepare.outputs.sha_short }}
+          cache-from: type=gha,scope=parser
+          cache-to: type=gha,mode=max,scope=parser
 
-      - name: Build and push API image
-        uses: docker/build-push-action@v5
+  build-api:
+    name: Build API
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v5
         with:
           context: ./services
           file: ./services/api/Dockerfile
           push: true
           tags: |
-            ${{ env.DOCKER_REGISTRY }}/${{ steps.meta.outputs.image_prefix }}-api:latest
-            ${{ env.DOCKER_REGISTRY }}/${{ steps.meta.outputs.image_prefix }}-api:${{ steps.meta.outputs.sha_short }}
+            ${{ env.DOCKER_REGISTRY }}/${{ needs.prepare.outputs.image_prefix }}-api:latest
+            ${{ env.DOCKER_REGISTRY }}/${{ needs.prepare.outputs.image_prefix }}-api:${{ needs.prepare.outputs.sha_short }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
 
-      - name: Build and push Frontend image
-        uses: docker/build-push-action@v5
+  build-frontend:
+    name: Build Frontend
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v5
         with:
           context: ./services/frontend
           file: ./services/frontend/Dockerfile
           push: true
           tags: |
-            ${{ env.DOCKER_REGISTRY }}/${{ steps.meta.outputs.image_prefix }}-frontend:latest
-            ${{ env.DOCKER_REGISTRY }}/${{ steps.meta.outputs.image_prefix }}-frontend:${{ steps.meta.outputs.sha_short }}
+            ${{ env.DOCKER_REGISTRY }}/${{ needs.prepare.outputs.image_prefix }}-frontend:latest
+            ${{ env.DOCKER_REGISTRY }}/${{ needs.prepare.outputs.image_prefix }}-frontend:${{ needs.prepare.outputs.sha_short }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
 
   deploy:
     name: Deploy to Server
-    needs: build-and-push
+    needs: [prepare, build-parser, build-api, build-frontend]
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup SSH
         run: |
@@ -95,11 +129,9 @@ jobs:
 
       - name: Create .env file
         run: |
-          # repository owner를 소문자로 변환
-          OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           ssh -i ~/.ssh/id_rsa ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << EOF
             cat > ~/swim-scheduler/.env << 'ENVFILE'
-          GITHUB_REPOSITORY_OWNER=${OWNER_LC}
+          GITHUB_REPOSITORY_OWNER=${{ needs.prepare.outputs.owner }}
           DB_ROOT_PASSWORD=${{ secrets.DB_ROOT_PASSWORD }}
           DB_USER=swim_app
           DB_PASSWORD=${{ secrets.DB_PASSWORD }}
@@ -117,23 +149,15 @@ jobs:
             set -e
             cd ~/swim-scheduler
 
-            # GitHub Container Registry 로그인
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            # 배포 전 디스크 공간 확보
-            echo "📦 사용하지 않는 Docker 데이터 정리 중..."
-            docker system prune -af --volumes
-
-            # 최신 이미지 pull
+            # 이미지 pull 및 재시작
             docker compose pull
-
-            # 컨테이너 재시작
             docker compose up -d --remove-orphans
 
-            # 배포 후 추가 정리
+            # 오래된 이미지 정리
             docker image prune -af
 
-            # 상태 확인
             docker compose ps
             echo "✅ 배포 완료!"
           EOF
@@ -141,19 +165,16 @@ jobs:
       - name: Health check
         run: |
           echo "API 시작 대기 중..."
-          sleep 30
+          sleep 10
 
-          # 최대 5번 재시도 (30초 간격)
-          for i in {1..5}; do
-            echo "Health check 시도 $i/5..."
-            if curl -f http://${{ secrets.SSH_HOST }}:80/health; then
+          for i in {1..6}; do
+            echo "Health check 시도 $i/6..."
+            if curl -sf http://${{ secrets.SSH_HOST }}:80/health; then
+              echo ""
               echo "✅ Health check 통과"
               exit 0
             fi
-            if [ $i -lt 5 ]; then
-              echo "재시도 대기 중..."
-              sleep 30
-            fi
+            [ $i -lt 6 ] && sleep 10
           done
 
           echo "❌ Health check 실패"
