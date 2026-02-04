@@ -8,8 +8,8 @@ import holidays
 
 from app.domain.closure.model import FacilityClosure
 
-# 한국 공휴일 캘린더
-kr_holidays = holidays.KR()
+# 한국 공휴일 캘린더 (한국어 이름 사용)
+kr_holidays = holidays.KR(language='ko')
 
 # 요일 매핑 (weekday -> 한글 요일명)
 WEEKDAY_TO_KOREAN = {
