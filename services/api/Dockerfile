@@ -7,12 +7,10 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y gcc && rm -rf /var/lib/apt/lists/*
 
 # 의존성 파일 복사
-COPY parser/requirements/ /app/parser-requirements/
-COPY api/requirements.txt api-requirements.txt
+COPY api/requirements.txt requirements.txt
 
 # 패키지 빌드 (--user로 /root/.local에 설치)
-RUN pip install --no-cache-dir --user -r /app/parser-requirements/prod.txt && \
-    pip install --no-cache-dir --user -r api-requirements.txt
+RUN pip install --no-cache-dir --user -r requirements.txt
 
 # ===== Production Stage =====
 FROM python:3.11-slim
@@ -27,7 +25,6 @@ COPY --from=builder /root/.local /root/.local
 ENV PATH=/root/.local/bin:$PATH
 
 # 소스 코드 복사
-COPY parser /app/parser
 COPY api /app/api
 
 WORKDIR /app/api
