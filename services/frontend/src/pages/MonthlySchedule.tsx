@@ -4,7 +4,7 @@ import type { Facility, Schedule } from '../types/schedule';
 import { openSourceUrl } from '../utils/urlUtils';
 import { LoadingSpinner, EmptyState, SessionCard } from '../components/common';
 
-function ScheduleCalendar() {
+function MonthlySchedule() {
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [selectedFacility, setSelectedFacility] = useState<string>('');
@@ -254,4 +254,4 @@ function ScheduleCalendar() {
   );
 }
 
-export default ScheduleCalendar;
+export default MonthlySchedule;

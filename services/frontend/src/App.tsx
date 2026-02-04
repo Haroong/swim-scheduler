@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom'
 import Landing from './pages/Landing'
-import ScheduleCalendar from './pages/ScheduleCalendar'
+import MonthlySchedule from './pages/MonthlySchedule'
 import DailySchedule from './pages/DailySchedule'
 import CalendarView from './pages/CalendarView'
 
@@ -117,7 +117,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/today" element={<DailySchedule />} />
-          <Route path="/monthly" element={<ScheduleCalendar />} />
+          <Route path="/monthly" element={<MonthlySchedule />} />
           <Route path="/calendar" element={<CalendarView />} />
         </Routes>
       </AppLayout>
