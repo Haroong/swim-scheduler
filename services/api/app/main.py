@@ -6,13 +6,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# 로깅 설정 초기화 (가장 먼저 import)
-from app.config import logging_config
+# 로깅 설정 초기화 (가장 먼저 import - 모듈 import 시 자동 설정됨)
+from app.shared.logging.logging_config import setup_logging, get_logger
 
-from app.routes import schedules
-from app.models.base import Base
-from app.database.session import engine
-from app.config.cache import init_cache, close_cache
+from app.presentation.schedule.controller import router as schedule_router
+from app.domain.base import Base
+from app.infrastructure.persistence.database import engine
+from app.infrastructure.cache.redis import init_cache, close_cache
 
 
 @asynccontextmanager
@@ -24,7 +24,12 @@ async def lifespan(app: FastAPI):
     """
     # Startup: 테이블 자동 생성 (Spring JPA의 ddl-auto: update와 유사)
     # 모든 모델 import하여 Base.metadata에 등록
-    from app.models import facility, schedule, notice, fee
+    from app.domain.facility.model import Facility
+    from app.domain.schedule.model import SwimSchedule, SwimSession
+    from app.domain.notice.model import Notice
+    from app.domain.fee.model import Fee
+    from app.domain.closure.model import FacilityClosure
+
     Base.metadata.create_all(bind=engine)
 
     # Redis 캐시 초기화
@@ -57,7 +62,7 @@ app.add_middleware(
 )
 
 # 라우터 등록
-app.include_router(schedules.router, prefix="/api", tags=["schedules"])
+app.include_router(schedule_router, prefix="/api", tags=["schedules"])
 
 
 @app.get("/")
