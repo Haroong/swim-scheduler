@@ -57,6 +57,16 @@ class Settings:
             "environment": self.ENV,
         }
 
+    # Redis 설정
+    REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
+    REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
+
+    # 캐시 TTL 설정 (초 단위)
+    CACHE_TTL_FACILITIES: int = 86400   # 24시간 - 시설 목록
+    CACHE_TTL_SCHEDULES: int = 86400    # 24시간 - 월별 스케줄
+    CACHE_TTL_DAILY: int = 43200        # 12시간 - 일별 스케줄
+    CACHE_TTL_CALENDAR: int = 86400     # 24시간 - 캘린더 데이터
+
 
 # 싱글톤 인스턴스
 settings = Settings()

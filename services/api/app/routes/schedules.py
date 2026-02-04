@@ -2,18 +2,22 @@
 Schedule API Routes
 """
 from typing import List, Optional
-from fastapi import APIRouter, Query, HTTPException, Depends
+from fastapi import APIRouter, Query, HTTPException, Depends, Request
 from sqlalchemy.orm import Session
+from fastapi_cache.decorator import cache
 
 from app.services import ScheduleService
 from app.schemas import FacilityResponse, ScheduleResponse
 from app.database import get_db
+from app.config.settings import settings
+from app.config.cache import cache_key_builder
 
 router = APIRouter()
 
 
 @router.get("/facilities", response_model=List[FacilityResponse])
-async def get_facilities(db: Session = Depends(get_db)):
+@cache(expire=settings.CACHE_TTL_FACILITIES, key_builder=cache_key_builder)
+async def get_facilities(request: Request, db: Session = Depends(get_db)):
     """
     시설 목록 조회
 
@@ -25,7 +29,9 @@ async def get_facilities(db: Session = Depends(get_db)):
 
 
 @router.get("/schedules", response_model=List[dict])
+@cache(expire=settings.CACHE_TTL_SCHEDULES, key_builder=cache_key_builder)
 async def get_schedules(
+    request: Request,
     facility: Optional[str] = Query(None, description="시설명 (예: 야탑유스센터)"),
     month: Optional[str] = Query(None, description="월 (예: 2026-01 또는 2026년 1월)"),
     db: Session = Depends(get_db)
@@ -45,7 +51,9 @@ async def get_schedules(
 
 
 @router.get("/schedules/daily", response_model=List[dict])
+@cache(expire=settings.CACHE_TTL_DAILY, key_builder=cache_key_builder)
 async def get_daily_schedules(
+    request: Request,
     date: str = Query(..., description="날짜 (YYYY-MM-DD 형식, 예: 2026-01-18)"),
     db: Session = Depends(get_db)
 ):
@@ -75,7 +83,9 @@ async def get_daily_schedules(
 
 
 @router.get("/schedules/calendar")
+@cache(expire=settings.CACHE_TTL_CALENDAR, key_builder=cache_key_builder)
 async def get_calendar_schedules(
+    request: Request,
     year: int = Query(..., description="년도 (예: 2026)"),
     month: int = Query(..., ge=1, le=12, description="월 (1-12)"),
     db: Session = Depends(get_db)

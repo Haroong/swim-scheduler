@@ -47,6 +47,22 @@ services:
         condition: service_healthy
     restart: unless-stopped  # 자동 재시작
 
+  # Redis 캐시
+  redis:
+    image: redis:7.2-alpine
+    container_name: swim-scheduler-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - swim-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # API 서비스 (FastAPI)
   api:
     build:
@@ -63,10 +79,14 @@ services:
       API_PORT: 8000
       LOKI_ENABLED: "true"
       LOKI_URL: http://loki:3100/loki/api/v1/push
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     networks:
       - swim-network
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       loki:
         condition: service_started
@@ -146,6 +166,7 @@ networks:
 volumes:
   db_data:
   parser_data:
+  redis_data:
   loki_data:
   prometheus_data:
   grafana_data:

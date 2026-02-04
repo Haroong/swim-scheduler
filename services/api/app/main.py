@@ -12,22 +12,28 @@ from app.config import logging_config
 from app.routes import schedules
 from app.models.base import Base
 from app.database.session import engine
+from app.config.cache import init_cache, close_cache
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
     애플리케이션 시작/종료 시 실행되는 이벤트
-    - 시작 시: 테이블 자동 생성 (없는 경우에만)
+    - 시작 시: 테이블 자동 생성, Redis 캐시 초기화
+    - 종료 시: Redis 연결 종료
     """
     # Startup: 테이블 자동 생성 (Spring JPA의 ddl-auto: update와 유사)
     # 모든 모델 import하여 Base.metadata에 등록
     from app.models import facility, schedule, notice, fee
     Base.metadata.create_all(bind=engine)
 
+    # Redis 캐시 초기화
+    await init_cache()
+
     yield
 
-    # Shutdown: 정리 작업 (필요시)
+    # Shutdown: Redis 연결 종료
+    await close_cache()
 
 
 app = FastAPI(
