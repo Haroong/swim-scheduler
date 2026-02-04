@@ -17,9 +17,7 @@ async def init_cache() -> None:
     애플리케이션 시작 시 호출
     """
     redis = aioredis.from_url(
-        f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}",
-        encoding="utf-8",
-        decode_responses=True
+        f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}"
     )
     FastAPICache.init(RedisBackend(redis), prefix="swim-api-cache")
 
