@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { scheduleApi } from '../services/api';
 import type { DailySchedule, Session } from '../types/schedule';
 import { openSourceUrl } from '../utils/urlUtils';
-import { LoadingSpinner, EmptyState, Badge } from '../components/common';
+import { EmptyState, Badge } from '../components/common';
 import { Link } from 'react-router-dom';
 
 // ===== 유틸리티 함수 =====
