@@ -68,10 +68,10 @@ function AppLayout({ children }: { children: React.ReactNode }) {
                 </div>
                 <div>
                   <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
-                    Swim Scheduler
+                    오늘수영
                   </h1>
                   <p className="text-xs sm:text-sm text-white/90 font-medium">
-                    성남시 자유수영 한눈에 보기
+                    성남시 자유수영 일정 정보
                   </p>
                 </div>
               </Link>

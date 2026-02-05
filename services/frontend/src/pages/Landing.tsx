@@ -12,7 +12,7 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-800 mb-4">
-              왜 Swim Scheduler를 써야 할까요?
+              왜 오늘수영을 써야 할까요?
             </h2>
             <p className="text-lg text-slate-600">
               성남시 공공 수영장 정보를 가장 빠르고 편리하게
@@ -82,7 +82,7 @@ export default function Landing() {
                 </h2>
                 <p className="text-lg text-slate-600 mb-8 leading-relaxed">
                   복잡한 공지사항을 찾아다닐 필요 없이,
-                  Swim Scheduler에서 한 번에 확인하세요.
+                  오늘수영에서 한 번에 확인하세요.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4">
                   <Link
@@ -142,7 +142,7 @@ export default function Landing() {
             더 이상 공지사항을 찾아다니지 마세요
           </h2>
           <p className="text-lg text-slate-600 mb-10">
-            Swim Scheduler가 성남시 모든 공공 수영장 정보를 한곳에 모았습니다
+            오늘수영이 성남시 모든 공공 수영장 정보를 한곳에 모았습니다
           </p>
           <Link
             to="/today"
@@ -171,7 +171,7 @@ export default function Landing() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
                   </svg>
                 </div>
-                <span className="text-lg font-bold">Swim Scheduler</span>
+                <span className="text-lg font-bold">오늘수영</span>
               </div>
               <p className="text-slate-400 text-sm leading-relaxed">
                 성남시 공공 수영장 자유수영 정보를<br />
@@ -214,7 +214,7 @@ export default function Landing() {
           {/* Copyright */}
           <div className="border-t border-slate-800 mt-10 pt-8 text-center">
             <p className="text-slate-500 text-sm">
-              © 2026 Swim Scheduler. All rights reserved.
+              © 2026 오늘수영. All rights reserved.
             </p>
             <div className="mt-3 flex items-center justify-center gap-2 text-slate-500 text-sm">
               <span>Made by 조혜륜</span>
