@@ -20,18 +20,18 @@ function Navigation() {
           key={item.path}
           to={item.path}
           className={`
-            px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-sm sm:text-base font-semibold transition-all
-            flex items-center gap-2
+            min-h-11 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-sm sm:text-base font-semibold transition-all
+            flex items-center gap-1.5 sm:gap-2
             ${location.pathname === item.path
               ? 'bg-white text-ocean-600 shadow-lg scale-105'
-              : 'text-white/95 hover:bg-white/20 hover:scale-105'
+              : 'text-white/95 hover:bg-white/20 hover:scale-105 active:scale-95 active:bg-white/30'
             }
           `}
         >
-          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
           </svg>
-          <span className="hidden sm:inline">{item.label}</span>
+          <span>{item.label}</span>
         </Link>
       ))}
     </nav>
@@ -88,16 +88,16 @@ function AppLayout({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-slate-200 py-8">
+      <footer className="bg-white border-t border-slate-200 py-8 pb-[calc(2rem+env(safe-area-inset-bottom))]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center">
             <p className="text-sm text-slate-600 font-medium">
               성남시 공공 수영장 자유수영 일정 정보
             </p>
-            <p className="mt-2 text-xs text-slate-400">
+            <p className="mt-2 text-xs text-slate-500">
               실제 운영 시간은 각 시설에 문의해주세요
             </p>
-            <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-slate-400">
+            <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-slate-500">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>

@@ -1,9 +1,15 @@
+interface EmptyStateAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface EmptyStateProps {
   message: string;
   icon?: 'calendar' | 'clipboard' | 'minus';
+  action?: EmptyStateAction;
 }
 
-export function EmptyState({ message, icon = 'minus' }: EmptyStateProps) {
+export function EmptyState({ message, icon = 'minus', action }: EmptyStateProps) {
   const icons = {
     calendar: (
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -23,7 +29,15 @@ export function EmptyState({ message, icon = 'minus' }: EmptyStateProps) {
           {icons[icon]}
         </svg>
       </div>
-      <p className="text-slate-500">{message}</p>
+      <p className="text-slate-500 mb-4">{message}</p>
+      {action && (
+        <button
+          onClick={action.onClick}
+          className="min-h-12 px-6 bg-gradient-to-r from-ocean-500 to-wave-500 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95"
+        >
+          {action.label}
+        </button>
+      )}
     </div>
   );
 }

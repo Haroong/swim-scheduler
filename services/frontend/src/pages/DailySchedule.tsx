@@ -1,46 +1,147 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { scheduleApi } from '../services/api';
-import type { DailySchedule } from '../types/schedule';
+import type { DailySchedule, Session } from '../types/schedule';
 import { openSourceUrl } from '../utils/urlUtils';
-import { LoadingSpinner, EmptyState, SessionCard, NotesSection, Badge } from '../components/common';
+import { LoadingSpinner, EmptyState, Badge } from '../components/common';
+import { Link } from 'react-router-dom';
 
-function DailySchedulePage() {
-  const [schedules, setSchedules] = useState<DailySchedule[]>([]);
-  const [selectedDate, setSelectedDate] = useState<string>(() => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+// ===== 유틸리티 함수 =====
 
-  useEffect(() => {
-    loadDailySchedules();
-  }, [selectedDate]);
+// 현재 시간 기준 세션 상태 판단
+function getSessionStatus(session: Session): 'past' | 'current' | 'upcoming' {
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-  const loadDailySchedules = async () => {
-    if (!selectedDate) return;
+  const [startHour, startMin] = session.start_time.split(':').map(Number);
+  const [endHour, endMin] = session.end_time.split(':').map(Number);
+  const startMinutes = startHour * 60 + startMin;
+  const endMinutes = endHour * 60 + endMin;
 
-    try {
-      setLoading(true);
-      const data = await scheduleApi.getDailySchedules(selectedDate);
-      setSchedules(data);
-      setError(null);
-    } catch (err) {
-      setError('스케줄을 불러오는데 실패했습니다.');
-      console.error(err);
-    } finally {
-      setLoading(false);
+  if (currentMinutes >= endMinutes) {
+    return 'past';
+  } else if (currentMinutes >= startMinutes && currentMinutes < endMinutes) {
+    return 'current';
+  }
+  return 'upcoming';
+}
+
+// 다음 이용 가능한 세션 인덱스 찾기
+function findNextSessionIndex(sessions: Session[]): number {
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  for (let i = 0; i < sessions.length; i++) {
+    const [startHour, startMin] = sessions[i].start_time.split(':').map(Number);
+    const startMinutes = startHour * 60 + startMin;
+    if (currentMinutes < startMinutes) {
+      return i;
     }
-  };
+  }
+  return -1;
+}
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const year = date.getFullYear();
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
-    const weekday = weekdays[date.getDay()];
-    return `${year}년 ${month}월 ${day}일 (${weekday})`;
+// ===== 컴포넌트: 슬림 세션 아이템 =====
+function SlimSessionItem({
+  session,
+  status,
+  isNext,
+}: {
+  session: Session;
+  status: 'past' | 'current' | 'upcoming';
+  isNext: boolean;
+}) {
+  const isPast = status === 'past';
+  const isCurrent = status === 'current';
+
+  return (
+    <div className={`
+      flex items-center gap-2 px-3 py-2.5 rounded-lg transition-all
+      ${isPast
+        ? 'bg-slate-50 opacity-50'
+        : isCurrent
+          ? 'bg-green-50 border-l-4 border-green-500'
+          : isNext
+            ? 'bg-ocean-50 border-l-4 border-ocean-500'
+            : 'bg-slate-50/50 hover:bg-slate-50'
+      }
+    `}>
+      {/* 세션명 */}
+      <span className={`
+        w-10 text-sm font-semibold
+        ${isPast ? 'text-slate-400' : isCurrent ? 'text-green-700' : isNext ? 'text-ocean-700' : 'text-slate-700'}
+      `}>
+        {session.session_name}
+      </span>
+
+      {/* 시간 */}
+      <span className={`
+        flex-1 text-sm font-mono
+        ${isPast ? 'text-slate-400 line-through' : isCurrent ? 'text-green-600 font-semibold' : isNext ? 'text-ocean-600 font-semibold' : 'text-slate-600'}
+      `}>
+        {session.start_time.substring(0, 5)} - {session.end_time.substring(0, 5)}
+      </span>
+
+      {/* 정원 */}
+      {session.capacity && (
+        <span className={`
+          text-xs px-2 py-0.5 rounded-full
+          ${isPast
+            ? 'bg-slate-100 text-slate-400'
+            : isCurrent
+              ? 'bg-green-100 text-green-700'
+              : isNext
+                ? 'bg-ocean-100 text-ocean-700'
+                : 'bg-slate-100 text-slate-500'
+          }
+        `}>
+          {session.capacity}명
+        </span>
+      )}
+
+      {/* 상태 뱃지 */}
+      {isCurrent && (
+        <span className="text-[10px] font-bold text-white bg-green-500 px-1.5 py-0.5 rounded animate-pulse">
+          NOW
+        </span>
+      )}
+      {isNext && !isCurrent && (
+        <span className="text-[10px] font-bold text-white bg-ocean-500 px-1.5 py-0.5 rounded">
+          NEXT
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ===== 컴포넌트: 컴팩트 시설 카드 =====
+function CompactFacilityCard({
+  schedule,
+  colorIndex,
+  defaultExpanded = true,
+}: {
+  schedule: DailySchedule;
+  colorIndex: number;
+  defaultExpanded?: boolean;
+}) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+
+  const nextSessionIdx = useMemo(
+    () => (schedule.is_closed ? -1 : findNextSessionIndex(schedule.sessions)),
+    [schedule.sessions, schedule.is_closed]
+  );
+
+  const pastCount = useMemo(() => {
+    if (schedule.is_closed) return 0;
+    return schedule.sessions.filter((s) => getSessionStatus(s) === 'past').length;
+  }, [schedule.sessions, schedule.is_closed]);
+
+  const colorMap = ['ocean', 'wave', 'emerald'] as const;
+  const color = colorMap[colorIndex % 3];
+
+  const bgColors = {
+    ocean: 'bg-ocean-500',
+    wave: 'bg-wave-500',
+    emerald: 'bg-emerald-500',
   };
 
   const parseNotes = (notesStr?: string): string[] => {
@@ -53,178 +154,255 @@ function DailySchedulePage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Date Selector with Ocean Theme */}
-      <div className="bg-gradient-to-r from-ocean-500 to-wave-500 rounded-2xl shadow-soft p-6 sm:p-8 relative overflow-hidden">
-        {/* Wave Pattern Background */}
-        <div className="absolute inset-0 opacity-10">
-          <svg className="absolute bottom-0 w-full h-24" viewBox="0 0 1440 100" preserveAspectRatio="none">
-            <path fill="white" d="M0,50 C240,80 480,20 720,50 C960,80 1200,20 1440,50 L1440,100 L0,100 Z" />
-          </svg>
+    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      {/* 시설 헤더 */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center gap-2 p-3 hover:bg-slate-50 transition-colors"
+      >
+        {/* 컬러바 */}
+        <div className={`w-1 h-8 rounded-full ${schedule.is_closed ? 'bg-slate-300' : bgColors[color]}`} />
+
+        {/* 시설명 */}
+        <div className="flex-1 text-left">
+          <h3 className={`font-bold text-sm ${schedule.is_closed ? 'text-slate-400' : 'text-slate-800'}`}>
+            {schedule.facility_name}
+          </h3>
+          <p className="text-xs text-slate-400 mt-0.5">
+            {schedule.is_closed
+              ? '휴관'
+              : `${schedule.sessions.length}개 세션${pastCount > 0 ? ` · ${pastCount}개 종료` : ''}`}
+          </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 relative">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-lg">
-              <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        {/* 뱃지 */}
+        {!schedule.is_closed && (
+          <Badge variant={color} size="sm">
+            {schedule.day_type}
+          </Badge>
+        )}
+
+        {/* 화살표 */}
+        <svg
+          className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {/* 세션 리스트 */}
+      {isExpanded && (
+        <div className="border-t border-slate-100">
+          {schedule.is_closed ? (
+            <div className="flex items-center justify-center py-4 text-slate-400 text-sm">
+              <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
               </svg>
+              {schedule.closure_reason || '휴관일입니다'}
             </div>
-            <div>
-              <label htmlFor="date" className="block text-sm font-semibold text-white/90 mb-1">
-                날짜 선택
-              </label>
-              <input
-                id="date"
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="text-lg font-bold text-white bg-transparent border-none focus:outline-none cursor-pointer"
-              />
+          ) : (
+            <div className="p-2 space-y-1">
+              {schedule.sessions.map((session, idx) => (
+                <SlimSessionItem
+                  key={idx}
+                  session={session}
+                  status={getSessionStatus(session)}
+                  isNext={idx === nextSessionIdx}
+                />
+              ))}
             </div>
+          )}
+
+          {/* 유의사항 & 원본 링크 */}
+          {!schedule.is_closed && (parseNotes(schedule.notes).length > 0 || schedule.source_url) && (
+            <div className="px-3 pb-2 space-y-1.5">
+              {parseNotes(schedule.notes).length > 0 && (
+                <p className="text-xs text-amber-600 bg-amber-50 rounded px-2 py-1.5">
+                  {parseNotes(schedule.notes)[0]}
+                </p>
+              )}
+              {schedule.source_url && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openSourceUrl(schedule.source_url!);
+                  }}
+                  className="w-full text-xs text-slate-400 hover:text-ocean-500 py-1 flex items-center justify-center gap-1"
+                >
+                  원본 공지
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===== 메인 컴포넌트 =====
+function DailySchedulePage() {
+  const [schedules, setSchedules] = useState<DailySchedule[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // 오늘 날짜 (고정)
+  const today = useMemo(() => new Date().toISOString().split('T')[0], []);
+
+  // 1분마다 현재 시간 업데이트 (세션 상태 갱신용)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    loadDailySchedules();
+  }, [today]);
+
+  const loadDailySchedules = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await scheduleApi.getDailySchedules(today);
+      setSchedules(data);
+    } catch (err) {
+      setError('스케줄을 불러오는데 실패했습니다.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = () => {
+    const date = new Date(today);
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+    const weekday = weekdays[date.getDay()];
+    return `${month}월 ${day}일 (${weekday})`;
+  };
+
+  const formatTime = () => {
+    return currentTime.toLocaleTimeString('ko-KR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+  };
+
+  const operatingCount = schedules.filter((s) => !s.is_closed).length;
+  const closedCount = schedules.filter((s) => s.is_closed).length;
+
+  return (
+    <div className="space-y-4">
+      {/* 오늘 날짜 헤더 (고정) */}
+      <div className="bg-gradient-to-r from-ocean-500 to-wave-500 rounded-xl p-4 text-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-white/80 text-sm font-medium">오늘</p>
+            <h1 className="text-2xl font-bold">{formatDate()}</h1>
           </div>
-          <div className="sm:ml-auto">
-            <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm rounded-2xl text-base font-bold text-white shadow-lg">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              {formatDate(selectedDate)}
-            </div>
+          <div className="text-right">
+            <p className="text-white/80 text-sm font-medium">현재 시간</p>
+            <p className="text-xl font-bold font-mono">{formatTime()}</p>
           </div>
         </div>
+
+        {/* 다른 날짜 보기 링크 */}
+        <Link
+          to="/calendar"
+          className="mt-3 flex items-center justify-center gap-1.5 text-sm text-white/90 hover:text-white bg-white/10 hover:bg-white/20 rounded-lg py-2 transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          다른 날짜 보기
+        </Link>
       </div>
 
-      {/* Error Message */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700">
-          {error}
+      {/* 요약 정보 */}
+      {!loading && !error && schedules.length > 0 && (
+        <div className="flex items-center gap-3 px-1">
+          {operatingCount > 0 && (
+            <span className="inline-flex items-center gap-1 text-sm font-medium text-ocean-600">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              운영 {operatingCount}개
+            </span>
+          )}
+          {closedCount > 0 && (
+            <span className="text-sm text-slate-400">
+              · 휴관 {closedCount}개
+            </span>
+          )}
         </div>
       )}
 
-      {/* Loading State */}
+      {/* 에러 */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
+          <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <span className="flex-1 text-sm text-red-700">{error}</span>
+          <button
+            onClick={loadDailySchedules}
+            className="text-sm font-medium text-red-600 hover:text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-100"
+          >
+            재시도
+          </button>
+        </div>
+      )}
+
+      {/* 로딩 */}
       {loading ? (
-        <LoadingSpinner message="스케줄을 불러오는 중..." />
-      ) : (
-        <div className="space-y-4">
-          {schedules.length === 0 ? (
-            <EmptyState message={`${selectedDate}에 운영하는 수영장이 없습니다.`} icon="minus" />
-          ) : (
-            <>
-              {/* Header */}
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                  <svg className="w-6 h-6 text-ocean-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                  </svg>
-                  수영장 현황
-                </h2>
-                <div className="flex items-center gap-2">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-ocean-50 to-wave-50 text-ocean-700 rounded-lg text-sm font-bold border border-ocean-200">
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    운영 {schedules.filter(s => !s.is_closed).length}개
-                  </div>
-                  {schedules.filter(s => s.is_closed).length > 0 && (
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-500 rounded-lg text-sm font-bold border border-slate-200">
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                      휴관 {schedules.filter(s => s.is_closed).length}개
-                    </div>
-                  )}
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-white rounded-xl border border-slate-200 p-4 animate-pulse">
+              <div className="flex items-center gap-2">
+                <div className="w-1 h-8 bg-slate-200 rounded-full" />
+                <div className="flex-1">
+                  <div className="h-4 bg-slate-200 rounded w-1/3 mb-1.5" />
+                  <div className="h-3 bg-slate-100 rounded w-1/4" />
                 </div>
               </div>
-
-              {/* Schedule Cards - 운영 중인 시설을 먼저 표시 */}
-              {[...schedules].sort((a, b) => Number(a.is_closed) - Number(b.is_closed)).map((schedule, index) => (
-                <div
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {schedules.length === 0 ? (
+            <EmptyState
+              message="오늘 운영하는 수영장이 없습니다."
+              icon="minus"
+              action={{
+                label: '다른 날짜 보기',
+                onClick: () => {
+                  window.location.href = '/calendar';
+                },
+              }}
+            />
+          ) : (
+            [...schedules]
+              .sort((a, b) => Number(a.is_closed) - Number(b.is_closed))
+              .map((schedule, index) => (
+                <CompactFacilityCard
                   key={schedule.facility_id}
-                  className="bg-white rounded-2xl shadow-soft border border-slate-200 overflow-hidden hover:shadow-lg transition-all flex"
-                >
-                  {/* Left Color Bar */}
-                  <div className={`w-2 ${schedule.is_closed ? 'bg-gradient-to-b from-slate-400 to-slate-500' : index % 3 === 0 ? 'bg-gradient-to-b from-ocean-500 to-wave-500' : index % 3 === 1 ? 'bg-gradient-to-b from-wave-500 to-emerald-500' : 'bg-gradient-to-b from-emerald-500 to-teal-500'}`} />
-
-                  <div className="flex-1">
-                  {/* Card Header */}
-                  <div className="p-6 border-b border-slate-100">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-3 h-3 rounded-full ${schedule.is_closed ? 'bg-slate-400' : index % 3 === 0 ? 'bg-ocean-500' : index % 3 === 1 ? 'bg-wave-500' : 'bg-emerald-500'}`} />
-                        <div>
-                          <h3 className={`text-xl font-bold ${schedule.is_closed ? 'text-slate-500' : 'text-slate-800'}`}>
-                            {schedule.facility_name}
-                          </h3>
-                          <div className="flex items-center gap-2 mt-2">
-                            {schedule.is_closed ? (
-                              <Badge variant="slate">휴관</Badge>
-                            ) : (
-                              <>
-                                <Badge variant={index % 3 === 0 ? 'ocean' : index % 3 === 1 ? 'wave' : 'emerald'}>
-                                  {schedule.day_type}
-                                </Badge>
-                                {schedule.season && (
-                                  <Badge variant="wave">{schedule.season}</Badge>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Sessions Grid or Closure Notice */}
-                  <div className="p-6">
-                    {schedule.is_closed ? (
-                      <div className="flex flex-col items-center justify-center py-8 bg-slate-50 rounded-xl">
-                        <svg className="w-12 h-12 text-slate-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6" />
-                        </svg>
-                        <p className="text-lg font-bold text-slate-500 mb-1">휴관</p>
-                        {schedule.closure_reason && (
-                          <p className="text-sm text-slate-400">{schedule.closure_reason}</p>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {schedule.sessions.map((session, idx) => (
-                          <SessionCard
-                            key={idx}
-                            session={session}
-                            colorScheme={index % 3 === 0 ? 'ocean' : index % 3 === 1 ? 'wave' : 'emerald'}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Notes Section */}
-                  {parseNotes(schedule.notes).length > 0 && (
-                    <div className="px-5 pb-5">
-                      <NotesSection notes={parseNotes(schedule.notes)} />
-                    </div>
-                  )}
-
-                  {/* Card Footer */}
-                  {schedule.source_url && (
-                    <div className="px-6 pb-6">
-                      <button
-                        onClick={() => openSourceUrl(schedule.source_url!)}
-                        className="w-full py-3.5 bg-gradient-to-r from-slate-50 to-slate-100 hover:from-slate-100 hover:to-slate-200 rounded-xl text-slate-700 font-semibold transition-all flex items-center justify-center gap-2 border border-slate-200 hover:border-slate-300 hover:shadow-md"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                        원본 공지 보기
-                      </button>
-                    </div>
-                  )}
-                  </div>
-                </div>
-              ))}
-            </>
+                  schedule={schedule}
+                  colorIndex={index}
+                  defaultExpanded={index < 3}
+                />
+              ))
           )}
         </div>
       )}

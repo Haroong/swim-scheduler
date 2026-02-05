@@ -1,147 +1,395 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { scheduleApi } from '../services/api';
-import type { CalendarData, DailySchedule } from '../types/schedule';
+import type { DailySchedule, Session, Facility } from '../types/schedule';
 import { openSourceUrl } from '../utils/urlUtils';
-import { LoadingSpinner, Badge } from '../components/common';
+import { EmptyState, Badge } from '../components/common';
 
-function CalendarView() {
-  const [year, setYear] = useState<number>(() => new Date().getFullYear());
-  const [month, setMonth] = useState<number>(() => new Date().getMonth() + 1);
-  const [calendarData, setCalendarData] = useState<CalendarData | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [dailySchedules, setDailySchedules] = useState<DailySchedule[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+// ===== Filter Drawer 컴포넌트 =====
+function FilterDrawer({
+  isOpen,
+  onClose,
+  facilities,
+  selectedFacility,
+  onFacilityChange,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  facilities: Facility[];
+  selectedFacility: string;
+  onFacilityChange: (value: string) => void;
+}) {
+  if (!isOpen) return null;
 
-  useEffect(() => {
-    loadCalendarData();
-  }, [year, month]);
+  return (
+    <>
+      {/* 배경 오버레이 */}
+      <div
+        className="fixed inset-0 bg-black/40 z-40 transition-opacity"
+        onClick={onClose}
+      />
 
-  useEffect(() => {
-    const today = new Date();
-    const isCurrentMonth = today.getFullYear() === year && today.getMonth() + 1 === month;
+      {/* 드로어 패널 */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl z-50 shadow-xl animate-slide-up">
+        {/* 핸들 */}
+        <div className="flex justify-center py-3">
+          <div className="w-10 h-1 bg-slate-300 rounded-full" />
+        </div>
 
-    if (isCurrentMonth && !selectedDate) {
-      const todayStr = `${year}-${month.toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
-      setSelectedDate(todayStr);
+        {/* 헤더 */}
+        <div className="flex items-center justify-between px-4 pb-3 border-b border-slate-100">
+          <h3 className="text-lg font-bold text-slate-800">수영장 필터</h3>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+          >
+            <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* 필터 내용 */}
+        <div className="p-4 max-h-[60vh] overflow-y-auto">
+          <div className="space-y-2">
+            <button
+              onClick={() => {
+                onFacilityChange('');
+                onClose();
+              }}
+              className={`w-full text-left px-4 py-3 rounded-xl transition-colors ${
+                selectedFacility === ''
+                  ? 'bg-ocean-500 text-white'
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700'
+              }`}
+            >
+              전체 수영장
+            </button>
+            {facilities.map((facility) => (
+              <button
+                key={facility.facility_name}
+                onClick={() => {
+                  onFacilityChange(facility.facility_name);
+                  onClose();
+                }}
+                className={`w-full text-left px-4 py-3 rounded-xl transition-colors ${
+                  selectedFacility === facility.facility_name
+                    ? 'bg-ocean-500 text-white'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-700'
+                }`}
+              >
+                {facility.facility_name}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ===== FAB 필터 버튼 =====
+function FilterFAB({
+  onClick,
+  hasFilter,
+}: {
+  onClick: () => void;
+  hasFilter: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="fixed bottom-6 right-6 w-14 h-14 bg-ocean-500 hover:bg-ocean-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center z-30"
+    >
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+      </svg>
+      {hasFilter && (
+        <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+          !
+        </span>
+      )}
+    </button>
+  );
+}
+
+// ===== 유틸리티 함수 =====
+
+// 현재 시간 기준 세션 상태 판단
+function getSessionStatus(session: Session, selectedDate: string): 'past' | 'upcoming' {
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+
+  if (selectedDate !== today) return 'upcoming';
+
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const [endHour, endMin] = session.end_time.split(':').map(Number);
+  const endMinutes = endHour * 60 + endMin;
+
+  return currentMinutes >= endMinutes ? 'past' : 'upcoming';
+}
+
+// 다음 이용 가능한 세션 인덱스 찾기
+function findNextSessionIndex(sessions: Session[], selectedDate: string): number {
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+
+  if (selectedDate !== today) return -1;
+
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  for (let i = 0; i < sessions.length; i++) {
+    const [startHour, startMin] = sessions[i].start_time.split(':').map(Number);
+    const startMinutes = startHour * 60 + startMin;
+    if (currentMinutes < startMinutes) {
+      return i;
     }
-  }, [calendarData, year, month]);
+  }
+  return -1;
+}
 
+// 날짜 범위 생성 (중앙 기준 ±days)
+function getDateRange(centerDate: string, days: number = 14): {
+  date: string;
+  day: number;
+  weekday: string;
+  month: number;
+  isToday: boolean;
+  isSunday: boolean;
+  isSaturday: boolean;
+}[] {
+  const center = new Date(centerDate);
+  const today = new Date().toISOString().split('T')[0];
+  const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+  const dates = [];
+
+  for (let i = -days; i <= days; i++) {
+    const d = new Date(center);
+    d.setDate(center.getDate() + i);
+    const dateStr = d.toISOString().split('T')[0];
+    const dayOfWeek = d.getDay();
+
+    dates.push({
+      date: dateStr,
+      day: d.getDate(),
+      month: d.getMonth() + 1,
+      weekday: weekdays[dayOfWeek],
+      isToday: dateStr === today,
+      isSunday: dayOfWeek === 0,
+      isSaturday: dayOfWeek === 6,
+    });
+  }
+  return dates;
+}
+
+// ===== 컴포넌트: Horizontal Scrolling Date Picker =====
+function HorizontalDatePicker({
+  selectedDate,
+  onDateSelect,
+  onTodayClick,
+}: {
+  selectedDate: string;
+  onDateSelect: (date: string) => void;
+  onTodayClick: () => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const dateRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const dates = useMemo(() => getDateRange(selectedDate, 14), [selectedDate]);
+
+  // 선택된 날짜로 스크롤
   useEffect(() => {
-    if (selectedDate) {
-      loadDailySchedules(selectedDate);
+    const selectedEl = dateRefs.current.get(selectedDate);
+    if (selectedEl && scrollRef.current) {
+      const container = scrollRef.current;
+      const scrollLeft = selectedEl.offsetLeft - container.clientWidth / 2 + selectedEl.clientWidth / 2;
+      container.scrollTo({ left: scrollLeft, behavior: 'smooth' });
     }
   }, [selectedDate]);
 
-  const loadCalendarData = async () => {
-    try {
-      setLoading(true);
-      const data = await scheduleApi.getCalendarData(year, month);
-      setCalendarData(data);
-      setError(null);
-    } catch (err) {
-      setError('달력 데이터를 불러오는데 실패했습니다.');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadDailySchedules = async (dateStr: string) => {
-    try {
-      const data = await scheduleApi.getDailySchedules(dateStr);
-      setDailySchedules(data);
-    } catch (err) {
-      console.error('일별 스케줄 로드 실패:', err);
-      setDailySchedules([]);
-    }
-  };
-
-  const getDaysInMonth = (year: number, month: number): number => {
-    return new Date(year, month, 0).getDate();
-  };
-
-  const getFirstDayOfMonth = (year: number, month: number): number => {
-    return new Date(year, month - 1, 1).getDay();
-  };
-
-  const handlePrevMonth = () => {
-    if (month === 1) {
-      setYear(year - 1);
-      setMonth(12);
-    } else {
-      setMonth(month - 1);
-    }
-    setSelectedDate(null);
-  };
-
-  const handleNextMonth = () => {
-    if (month === 12) {
-      setYear(year + 1);
-      setMonth(1);
-    } else {
-      setMonth(month + 1);
-    }
-    setSelectedDate(null);
-  };
-
-  const handleDateClick = (day: number) => {
-    const dateStr = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
-    setSelectedDate(dateStr);
-  };
-
-  const renderCalendar = () => {
-    const daysInMonth = getDaysInMonth(year, month);
-    const firstDay = getFirstDayOfMonth(year, month);
-    const days: JSX.Element[] = [];
-
-    for (let i = 0; i < firstDay; i++) {
-      days.push(<div key={`empty-${i}`} className="aspect-square"></div>);
-    }
-
-    const today = new Date();
-    const isCurrentMonth = today.getFullYear() === year && today.getMonth() + 1 === month;
-
-    for (let day = 1; day <= daysInMonth; day++) {
-      const dateStr = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
-      const isToday = isCurrentMonth && today.getDate() === day;
-      const isSelected = selectedDate === dateStr;
-      const dayOfWeek = (firstDay + day - 1) % 7;
-      const isSunday = dayOfWeek === 0;
-      const isSaturday = dayOfWeek === 6;
-
-      days.push(
-        <button
-          key={day}
-          onClick={() => handleDateClick(day)}
-          className={`
-            aspect-square rounded-xl flex flex-col items-center justify-center transition-all relative
-            ${isSelected
-              ? 'bg-gradient-to-br from-ocean-500 to-wave-500 text-white shadow-glow scale-105'
-              : isToday
-                ? 'bg-ocean-50 text-ocean-700 font-semibold ring-2 ring-ocean-300'
-                : 'hover:bg-slate-100 hover:scale-105'
-            }
-            ${!isSelected && isSunday ? 'text-red-500' : ''}
-            ${!isSelected && isSaturday ? 'text-ocean-500' : ''}
-          `}
-        >
-          <span className="text-sm sm:text-base font-semibold">{day}</span>
-          {isToday && !isSelected && (
-            <span className="w-1.5 h-1.5 bg-ocean-500 rounded-full mt-1"></span>
-          )}
-        </button>
-      );
-    }
-
-    return days;
-  };
-
-  const formatSelectedDate = (dateStr: string) => {
+  const formatTitle = (dateStr: string) => {
     const date = new Date(dateStr);
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
     const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
-    const weekday = weekdays[date.getDay()];
-    return `${date.getDate()}일 (${weekday})`;
+    return `${month}월 ${day}일 (${weekdays[date.getDay()]})`;
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      {/* 타이틀 바 */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+        <h2 className="text-lg font-bold text-slate-800">
+          {formatTitle(selectedDate)}
+        </h2>
+        <button
+          onClick={onTodayClick}
+          className="text-xs font-semibold text-ocean-600 hover:text-ocean-700 px-3 py-1.5 rounded-lg hover:bg-ocean-50 transition-colors"
+        >
+          오늘
+        </button>
+      </div>
+
+      {/* 가로 스크롤 날짜 피커 */}
+      <div
+        ref={scrollRef}
+        className="flex overflow-x-auto scrollbar-hide px-2 py-3 gap-1 snap-x snap-mandatory"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
+        {dates.map((d) => {
+          const isSelected = d.date === selectedDate;
+
+          return (
+            <button
+              key={d.date}
+              ref={(el) => {
+                if (el) dateRefs.current.set(d.date, el);
+              }}
+              onClick={() => onDateSelect(d.date)}
+              className={`
+                flex-shrink-0 flex flex-col items-center justify-center
+                w-12 h-14 rounded-xl transition-all snap-center
+                ${isSelected
+                  ? 'bg-ocean-500 text-white shadow-lg scale-105'
+                  : d.isToday
+                    ? 'bg-ocean-50 text-ocean-700 ring-2 ring-ocean-300'
+                    : 'hover:bg-slate-100 active:scale-95'
+                }
+              `}
+            >
+              {/* 요일 */}
+              <span className={`
+                text-[10px] font-medium leading-none mb-1
+                ${isSelected
+                  ? 'text-white/80'
+                  : d.isSunday
+                    ? 'text-red-500'
+                    : d.isSaturday
+                      ? 'text-blue-500'
+                      : 'text-slate-400'
+                }
+              `}>
+                {d.weekday}
+              </span>
+
+              {/* 날짜 */}
+              <span className={`
+                text-base font-bold leading-none
+                ${isSelected ? 'text-white' : 'text-slate-700'}
+              `}>
+                {d.day}
+              </span>
+
+              {/* 오늘 표시 */}
+              {d.isToday && !isSelected && (
+                <span className="w-1 h-1 bg-ocean-500 rounded-full mt-1" />
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ===== 컴포넌트: 슬림 세션 아이템 =====
+function SlimSessionItem({
+  session,
+  isPast,
+  isNext,
+}: {
+  session: Session;
+  isPast: boolean;
+  isNext: boolean;
+}) {
+  return (
+    <div className={`
+      flex items-center gap-2 px-3 py-2 rounded-lg transition-all
+      ${isPast
+        ? 'bg-slate-50 opacity-50'
+        : isNext
+          ? 'bg-ocean-50 border-l-4 border-ocean-500'
+          : 'bg-slate-50/50 hover:bg-slate-50'
+      }
+    `}>
+      {/* 세션명 */}
+      <span className={`
+        w-10 text-sm font-semibold
+        ${isPast ? 'text-slate-400' : isNext ? 'text-ocean-700' : 'text-slate-700'}
+      `}>
+        {session.session_name}
+      </span>
+
+      {/* 시간 */}
+      <span className={`
+        flex-1 text-sm font-mono
+        ${isPast ? 'text-slate-400 line-through' : isNext ? 'text-ocean-600 font-semibold' : 'text-slate-600'}
+      `}>
+        {session.start_time.substring(0, 5)} - {session.end_time.substring(0, 5)}
+      </span>
+
+      {/* 정원 */}
+      {session.capacity && (
+        <span className={`
+          text-xs px-2 py-0.5 rounded-full
+          ${isPast
+            ? 'bg-slate-100 text-slate-400'
+            : isNext
+              ? 'bg-ocean-100 text-ocean-700'
+              : 'bg-slate-100 text-slate-500'
+          }
+        `}>
+          {session.capacity}명
+        </span>
+      )}
+
+      {/* NEXT 뱃지 */}
+      {isNext && (
+        <span className="text-[10px] font-bold text-white bg-ocean-500 px-1.5 py-0.5 rounded">
+          NEXT
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ===== 컴포넌트: 컴팩트 시설 카드 (Sticky Header) =====
+function CompactFacilityCard({
+  schedule,
+  selectedDate,
+  colorIndex,
+  defaultExpanded = true,
+}: {
+  schedule: DailySchedule;
+  selectedDate: string;
+  colorIndex: number;
+  defaultExpanded?: boolean;
+}) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const [isSticky, setIsSticky] = useState(false);
+  const headerRef = useRef<HTMLDivElement>(null);
+
+  const nextSessionIdx = useMemo(
+    () => (schedule.is_closed ? -1 : findNextSessionIndex(schedule.sessions, selectedDate)),
+    [schedule.sessions, selectedDate, schedule.is_closed]
+  );
+
+  const pastCount = useMemo(() => {
+    if (schedule.is_closed) return 0;
+    return schedule.sessions.filter((s) => getSessionStatus(s, selectedDate) === 'past').length;
+  }, [schedule.sessions, selectedDate, schedule.is_closed]);
+
+  const colorMap = ['ocean', 'wave', 'emerald'] as const;
+  const color = colorMap[colorIndex % 3];
+
+  const bgColors = {
+    ocean: 'bg-ocean-500',
+    wave: 'bg-wave-500',
+    emerald: 'bg-emerald-500',
+  };
+
+  const stickyBgColors = {
+    ocean: 'bg-gradient-to-r from-ocean-500 to-ocean-400',
+    wave: 'bg-gradient-to-r from-wave-500 to-wave-400',
+    emerald: 'bg-gradient-to-r from-emerald-500 to-emerald-400',
   };
 
   const parseNotes = (notesStr?: string): string[] => {
@@ -153,242 +401,325 @@ function CalendarView() {
     }
   };
 
+  // Sticky 상태 감지
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsSticky(entry.intersectionRatio < 1);
+      },
+      { threshold: [1], rootMargin: '-1px 0px 0px 0px' }
+    );
+
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Calendar */}
-      <div className="bg-white rounded-2xl shadow-soft border border-slate-200 overflow-hidden">
-        {/* Header with Ocean Gradient */}
-        <div className="bg-gradient-to-r from-ocean-500 to-wave-500 p-6 relative overflow-hidden">
-          {/* Wave decoration */}
-          <div className="absolute inset-0 opacity-10">
-            <svg className="absolute bottom-0 w-full h-16" viewBox="0 0 1440 100" preserveAspectRatio="none">
-              <path fill="white" d="M0,50 C240,80 480,20 720,50 C960,80 1200,20 1440,50 L1440,100 L0,100 Z" />
-            </svg>
+    <div className="bg-white rounded-xl border border-slate-200 overflow-visible">
+      {/* Sticky 시설 헤더 */}
+      <div
+        ref={headerRef}
+        className={`sticky top-0 z-10 rounded-t-xl transition-all ${
+          isSticky && !schedule.is_closed ? `${stickyBgColors[color]} shadow-md` : ''
+        }`}
+      >
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className={`w-full flex items-center gap-2 p-3 rounded-t-xl transition-colors ${
+            isSticky && !schedule.is_closed ? '' : 'hover:bg-slate-50'
+          }`}
+        >
+          {/* 컬러바 */}
+          <div className={`w-1 h-8 rounded-full ${
+            isSticky && !schedule.is_closed
+              ? 'bg-white/30'
+              : schedule.is_closed
+                ? 'bg-slate-300'
+                : bgColors[color]
+          }`} />
+
+          {/* 시설명 */}
+          <div className="flex-1 text-left">
+            <h3 className={`font-bold text-sm ${
+              isSticky && !schedule.is_closed
+                ? 'text-white'
+                : schedule.is_closed
+                  ? 'text-slate-400'
+                  : 'text-slate-800'
+            }`}>
+              {schedule.facility_name}
+            </h3>
+            <p className={`text-xs mt-0.5 ${
+              isSticky && !schedule.is_closed ? 'text-white/70' : 'text-slate-400'
+            }`}>
+              {schedule.is_closed
+                ? '휴관'
+                : `${schedule.sessions.length}개 세션${pastCount > 0 ? ` · ${pastCount}개 종료` : ''}`}
+            </p>
           </div>
 
-          <div className="flex items-center justify-between relative">
-            <button
-              onClick={handlePrevMonth}
-              className="w-11 h-11 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center transition-all hover:scale-110 shadow-lg"
-            >
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              {year}년 {month}월
-            </h2>
-            <button
-              onClick={handleNextMonth}
-              className="w-11 h-11 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center transition-all hover:scale-110 shadow-lg"
-            >
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
-        </div>
+          {/* 뱃지 */}
+          {!schedule.is_closed && !isSticky && (
+            <Badge variant={color} size="sm">
+              {schedule.day_type}
+            </Badge>
+          )}
 
-        <div className="p-6">
+          {/* 화살표 */}
+          <svg
+            className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''} ${
+              isSticky && !schedule.is_closed ? 'text-white/70' : 'text-slate-400'
+            }`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      </div>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 mb-4">
-            {error}
-          </div>
-        )}
-
-        {loading ? (
-          <LoadingSpinner message="로딩 중..." />
-        ) : (
-          <>
-            {/* Weekdays */}
-            <div className="grid grid-cols-7 gap-1 mb-2">
-              {['일', '월', '화', '수', '목', '금', '토'].map((day, idx) => (
-                <div
-                  key={day}
-                  className={`
-                    text-center text-sm font-medium py-2
-                    ${idx === 0 ? 'text-red-500' : idx === 6 ? 'text-blue-500' : 'text-slate-500'}
-                  `}
-                >
-                  {day}
-                </div>
+      {/* 세션 리스트 */}
+      {isExpanded && (
+        <div className="border-t border-slate-100">
+          {schedule.is_closed ? (
+            <div className="flex items-center justify-center py-4 text-slate-400 text-sm">
+              <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+              </svg>
+              {schedule.closure_reason || '휴관일입니다'}
+            </div>
+          ) : (
+            <div className="p-2 space-y-1">
+              {schedule.sessions.map((session, idx) => (
+                <SlimSessionItem
+                  key={idx}
+                  session={session}
+                  isPast={getSessionStatus(session, selectedDate) === 'past'}
+                  isNext={idx === nextSessionIdx}
+                />
               ))}
             </div>
+          )}
 
-            {/* Calendar Grid */}
-            <div className="grid grid-cols-7 gap-1">
-              {renderCalendar()}
-            </div>
-
-            {/* Info */}
-            <div className="mt-6 text-center text-sm text-slate-400">
-              날짜를 클릭하면 해당 날짜의 운영 시설을 확인할 수 있습니다
-            </div>
-          </>
-        )}
-        </div>
-      </div>
-
-      {/* Daily Detail */}
-      <div className="bg-white rounded-2xl shadow-soft border border-slate-200 overflow-hidden">
-        {selectedDate ? (
-          <>
-            {/* Detail Header */}
-            <div className="p-6 bg-gradient-to-r from-wave-500 to-emerald-500 relative overflow-hidden">
-              {/* Wave decoration */}
-              <div className="absolute inset-0 opacity-10">
-                <svg className="absolute bottom-0 w-full h-16" viewBox="0 0 1440 100" preserveAspectRatio="none">
-                  <path fill="white" d="M0,50 C240,80 480,20 720,50 C960,80 1200,20 1440,50 L1440,100 L0,100 Z" />
-                </svg>
-              </div>
-
-              <div className="flex items-center gap-4 relative">
-                <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center text-white font-bold text-2xl shadow-lg">
-                  {new Date(selectedDate).getDate()}
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-white mb-1">
-                    {formatSelectedDate(selectedDate)}
-                  </h3>
-                  <p className="text-sm text-white/90 font-medium flex items-center gap-2">
-                    {dailySchedules.length > 0 ? (
-                      <>
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        운영 {dailySchedules.filter(s => !s.is_closed).length}개
-                        {dailySchedules.filter(s => s.is_closed).length > 0 && (
-                          <span className="opacity-80">
-                            · 휴관 {dailySchedules.filter(s => s.is_closed).length}개
-                          </span>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                        </svg>
-                        운영하는 수영장 없음
-                      </>
-                    )}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Detail Content */}
-            <div className="p-6 max-h-[600px] overflow-y-auto">
-              {dailySchedules.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                    </svg>
-                  </div>
-                  <p className="text-slate-500">이 날은 운영하는 수영장이 없습니다.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {/* 운영 중인 시설을 먼저 표시 */}
-                  {[...dailySchedules].sort((a, b) => Number(a.is_closed) - Number(b.is_closed)).map((schedule, idx) => (
-                    <div
-                      key={schedule.facility_id}
-                      className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-2xl p-5 border border-slate-200 hover:shadow-md transition-all"
-                    >
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-3 h-3 rounded-full ${schedule.is_closed ? 'bg-slate-400' : idx % 3 === 0 ? 'bg-ocean-500' : idx % 3 === 1 ? 'bg-wave-500' : 'bg-emerald-500'}`} />
-                          <h4 className={`font-bold text-lg ${schedule.is_closed ? 'text-slate-500' : 'text-slate-800'}`}>
-                            {schedule.facility_name}
-                          </h4>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          {schedule.is_closed ? (
-                            <Badge variant="slate" size="sm">휴관</Badge>
-                          ) : (
-                            <>
-                              <Badge variant="ocean" size="sm">{schedule.day_type}</Badge>
-                              {schedule.season && (
-                                <Badge variant="wave" size="sm">{schedule.season}</Badge>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      {schedule.is_closed ? (
-                        <div className="flex items-center justify-center py-4 bg-slate-50 rounded-xl">
-                          <div className="text-center">
-                            <svg className="w-8 h-8 text-slate-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6" />
-                            </svg>
-                            <p className="text-sm font-semibold text-slate-500">휴관</p>
-                            {schedule.closure_reason && (
-                              <p className="text-xs text-slate-400 mt-1">{schedule.closure_reason}</p>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-1 gap-2">
-                          {schedule.sessions.map((session, sidx) => (
-                            <div
-                              key={sidx}
-                              className="flex items-center justify-between bg-white rounded-xl p-3.5 shadow-sm border border-slate-100"
-                            >
-                              <span className="font-semibold text-slate-700 text-sm">
-                                {session.session_name}
-                              </span>
-                              <span className="text-transparent bg-clip-text bg-gradient-to-r from-ocean-600 to-wave-600 font-bold text-sm">
-                                {session.start_time.substring(0, 5)} - {session.end_time.substring(0, 5)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {parseNotes(schedule.notes).length > 0 && (
-                        <div className="mt-3 pt-3 border-t border-slate-200">
-                          <p className="text-xs text-amber-600">
-                            {parseNotes(schedule.notes)[0]}
-                          </p>
-                        </div>
-                      )}
-
-                      {schedule.source_url && (
-                        <button
-                          onClick={() => openSourceUrl(schedule.source_url!)}
-                          className="mt-3 w-full py-2 text-sm text-slate-500 hover:text-primary-600 transition-colors flex items-center justify-center gap-1"
-                        >
-                          원본 공지 보기
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
+          {/* 유의사항 & 원본 링크 */}
+          {!schedule.is_closed && (parseNotes(schedule.notes).length > 0 || schedule.source_url) && (
+            <div className="px-3 pb-2 space-y-1.5">
+              {parseNotes(schedule.notes).length > 0 && (
+                <p className="text-xs text-amber-600 bg-amber-50 rounded px-2 py-1.5">
+                  {parseNotes(schedule.notes)[0]}
+                </p>
+              )}
+              {schedule.source_url && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openSourceUrl(schedule.source_url!);
+                  }}
+                  className="w-full text-xs text-slate-400 hover:text-ocean-500 py-1 flex items-center justify-center gap-1"
+                >
+                  원본 공지
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </button>
               )}
             </div>
-          </>
-        ) : (
-          <div className="flex items-center justify-center h-full min-h-[400px]">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===== 메인 컴포넌트: CalendarView =====
+function CalendarView() {
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    return new Date().toISOString().split('T')[0];
+  });
+  const [dailySchedules, setDailySchedules] = useState<DailySchedule[]>([]);
+  const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [selectedFacility, setSelectedFacility] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+  // 시설 목록 로드
+  useEffect(() => {
+    const loadFacilities = async () => {
+      try {
+        const data = await scheduleApi.getFacilities();
+        setFacilities(data);
+      } catch (err) {
+        console.error('시설 목록 로드 실패:', err);
+      }
+    };
+    loadFacilities();
+  }, []);
+
+  // 날짜 변경 시 데이터 로드
+  useEffect(() => {
+    loadDailySchedules(selectedDate);
+  }, [selectedDate]);
+
+  const loadDailySchedules = async (dateStr: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await scheduleApi.getDailySchedules(dateStr);
+      setDailySchedules(data);
+    } catch (err) {
+      console.error('스케줄 로드 실패:', err);
+      setError('데이터를 불러올 수 없습니다.');
+      setDailySchedules([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const goToToday = () => {
+    setSelectedDate(new Date().toISOString().split('T')[0]);
+  };
+
+  const formatDateShort = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+    return `${date.getMonth() + 1}월 ${date.getDate()}일 (${weekdays[date.getDay()]})`;
+  };
+
+  // 필터 적용
+  const filteredSchedules = useMemo(() => {
+    if (!selectedFacility) return dailySchedules;
+    return dailySchedules.filter((s) => s.facility_name === selectedFacility);
+  }, [dailySchedules, selectedFacility]);
+
+  const hasFilter = selectedFacility !== '';
+  const operatingCount = filteredSchedules.filter((s) => !s.is_closed).length;
+  const closedCount = filteredSchedules.filter((s) => s.is_closed).length;
+
+  return (
+    <div className="space-y-4 pb-20">
+      {/* Horizontal Date Picker */}
+      <HorizontalDatePicker
+        selectedDate={selectedDate}
+        onDateSelect={setSelectedDate}
+        onTodayClick={goToToday}
+      />
+
+      {/* 요약 정보 */}
+      {!loading && !error && filteredSchedules.length > 0 && (
+        <div className="flex items-center gap-3 px-1">
+          {operatingCount > 0 && (
+            <span className="inline-flex items-center gap-1 text-sm font-medium text-ocean-600">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              운영 {operatingCount}개
+            </span>
+          )}
+          {closedCount > 0 && (
+            <span className="text-sm text-slate-400">
+              · 휴관 {closedCount}개
+            </span>
+          )}
+          {hasFilter && (
+            <span className="inline-flex items-center gap-1 text-xs text-ocean-600 font-medium bg-ocean-50 px-2 py-0.5 rounded-full">
+              {selectedFacility}
+              <button
+                onClick={() => setSelectedFacility('')}
+                className="hover:text-ocean-800"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
+              </button>
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* 에러 */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
+          <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <span className="flex-1 text-sm text-red-700">{error}</span>
+          <button
+            onClick={() => loadDailySchedules(selectedDate)}
+            className="text-sm font-medium text-red-600 hover:text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-100"
+          >
+            재시도
+          </button>
+        </div>
+      )}
+
+      {/* 로딩 */}
+      {loading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-white rounded-xl border border-slate-200 p-4 animate-pulse">
+              <div className="flex items-center gap-2">
+                <div className="w-1 h-8 bg-slate-200 rounded-full" />
+                <div className="flex-1">
+                  <div className="h-4 bg-slate-200 rounded w-1/3 mb-1.5" />
+                  <div className="h-3 bg-slate-100 rounded w-1/4" />
+                </div>
               </div>
-              <p className="text-slate-500">날짜를 선택해주세요</p>
             </div>
-          </div>
-        )}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredSchedules.length === 0 ? (
+            <EmptyState
+              message={hasFilter
+                ? `${formatDateShort(selectedDate)}에 ${selectedFacility}의 일정이 없습니다.`
+                : `${formatDateShort(selectedDate)}에 운영하는 수영장이 없습니다.`
+              }
+              icon="minus"
+              action={hasFilter ? {
+                label: '필터 해제',
+                onClick: () => setSelectedFacility(''),
+              } : {
+                label: '다음 날 보기',
+                onClick: () => {
+                  const date = new Date(selectedDate);
+                  date.setDate(date.getDate() + 1);
+                  setSelectedDate(date.toISOString().split('T')[0]);
+                },
+              }}
+            />
+          ) : (
+            [...filteredSchedules]
+              .sort((a, b) => Number(a.is_closed) - Number(b.is_closed))
+              .map((schedule, index) => (
+                <CompactFacilityCard
+                  key={schedule.facility_id}
+                  schedule={schedule}
+                  selectedDate={selectedDate}
+                  colorIndex={index}
+                  defaultExpanded={index < 2}
+                />
+              ))
+          )}
+        </div>
+      )}
+
+      {/* FAB 필터 버튼 */}
+      <FilterFAB onClick={() => setIsFilterOpen(true)} hasFilter={hasFilter} />
+
+      {/* Filter Drawer */}
+      <FilterDrawer
+        isOpen={isFilterOpen}
+        onClose={() => setIsFilterOpen(false)}
+        facilities={facilities}
+        selectedFacility={selectedFacility}
+        onFacilityChange={setSelectedFacility}
+      />
     </div>
   );
 }

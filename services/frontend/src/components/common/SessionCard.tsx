@@ -6,11 +6,11 @@ interface SessionCardProps {
 }
 
 export function SessionCard({ session, colorScheme = 'ocean' }: SessionCardProps) {
-  const gradients = {
-    ocean: 'from-ocean-600 to-wave-600',
-    wave: 'from-wave-600 to-emerald-600',
-    emerald: 'from-emerald-600 to-teal-600',
-    violet: 'from-violet-600 to-purple-600',
+  const textColors = {
+    ocean: 'text-ocean-700',
+    wave: 'text-wave-700',
+    emerald: 'text-emerald-700',
+    violet: 'text-violet-700',
   };
 
   const bgColors = {
@@ -21,7 +21,7 @@ export function SessionCard({ session, colorScheme = 'ocean' }: SessionCardProps
   };
 
   return (
-    <div className={`bg-gradient-to-br ${bgColors[colorScheme]} rounded-xl p-4 hover:shadow-md transition-all border border-slate-200/50 relative overflow-hidden group`}>
+    <div className={`bg-gradient-to-br ${bgColors[colorScheme]} rounded-xl p-4 hover:shadow-md active:scale-[0.98] active:shadow-none transition-all border border-slate-200/50 relative overflow-hidden group`}>
       {/* Hover effect */}
       <div className="absolute inset-0 bg-gradient-to-br from-white/0 to-white/50 opacity-0 group-hover:opacity-100 transition-opacity" />
 
@@ -29,7 +29,7 @@ export function SessionCard({ session, colorScheme = 'ocean' }: SessionCardProps
         <div className="font-semibold text-slate-800 mb-2 text-sm">
           {session.session_name}
         </div>
-        <div className={`text-transparent bg-clip-text bg-gradient-to-r ${gradients[colorScheme]} font-bold text-lg mb-3`}>
+        <div className={`${textColors[colorScheme]} font-bold text-lg mb-3`}>
           {session.start_time.substring(0, 5)} - {session.end_time.substring(0, 5)}
         </div>
         {(session.capacity || session.lanes) && (
