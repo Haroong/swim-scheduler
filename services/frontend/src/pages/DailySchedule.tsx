@@ -4,7 +4,6 @@ import type { DailySchedule, Session } from '../types/schedule';
 import { openSourceUrl } from '../utils/urlUtils';
 import { trackFavoriteToggle, trackFacilityView } from '../utils/analytics';
 import { EmptyState, Badge } from '../components/common';
-import { Link } from 'react-router-dom';
 import { useFavorites } from '../hooks';
 
 // ===== 유틸리티 함수 =====
@@ -284,16 +283,16 @@ function DailySchedulePage() {
   const [schedules, setSchedules] = useState<DailySchedule[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [, setTick] = useState(0);
   const { toggleFavorite, isFavorite } = useFavorites();
 
   // 오늘 날짜 (자정에 자동 갱신)
   const [today, setToday] = useState(() => new Date().toISOString().split('T')[0]);
 
-  // 1분마다 현재 시간 업데이트 (세션 상태 갱신용)
+  // 1분마다 리렌더 (세션 상태 갱신용)
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentTime(new Date());
+      setTick((t) => t + 1);
     }, 60000);
     return () => clearInterval(timer);
   }, []);
@@ -345,62 +344,24 @@ function DailySchedulePage() {
     return `${month}월 ${day}일 (${weekday})`;
   };
 
-  const formatTime = () => {
-    return currentTime.toLocaleTimeString('ko-KR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    });
-  };
-
   const operatingCount = schedules.filter((s) => !s.is_closed).length;
   const closedCount = schedules.filter((s) => s.is_closed).length;
 
   return (
     <div className="space-y-4">
-      {/* 오늘 날짜 헤더 */}
-      <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-ocean-600 text-sm font-medium">오늘</p>
-            <h1 className="text-2xl font-bold text-slate-800">{formatDate()}</h1>
-          </div>
-          <div className="text-right">
-            <p className="text-slate-400 text-sm font-medium">현재 시간</p>
-            <p className="text-xl font-bold font-mono text-slate-700">{formatTime()}</p>
-          </div>
-        </div>
-
-        {/* 다른 날짜 보기 링크 */}
-        <Link
-          to="/calendar"
-          className="mt-3 flex items-center justify-center gap-1.5 text-sm text-white bg-ocean-500 hover:bg-ocean-600 rounded-lg py-2 font-medium transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-          다른 날짜 보기
-        </Link>
+      {/* 날짜 및 요약 정보 */}
+      <div className="flex items-center justify-between px-1 text-sm">
+        <span className="font-semibold text-slate-700">{formatDate()}</span>
+        {!loading && !error && schedules.length > 0 && (
+          <span className="inline-flex items-center gap-1 text-blue-500">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            운영 {operatingCount}개
+            {closedCount > 0 && <span className="text-slate-400"> · 휴관 {closedCount}개</span>}
+          </span>
+        )}
       </div>
-
-      {/* 요약 정보 */}
-      {!loading && !error && schedules.length > 0 && (
-        <div className="flex items-center gap-3 px-1">
-          {operatingCount > 0 && (
-            <span className="inline-flex items-center gap-1 text-sm font-medium text-ocean-600">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              운영 {operatingCount}개
-            </span>
-          )}
-          {closedCount > 0 && (
-            <span className="text-sm text-slate-400">
-              · 휴관 {closedCount}개
-            </span>
-          )}
-        </div>
-      )}
 
       {/* 에러 */}
       {error && (

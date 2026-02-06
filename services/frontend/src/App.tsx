@@ -34,7 +34,7 @@ function Navigation() {
           className={`
             px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all
             flex items-center gap-1 sm:gap-1.5
-            ${location.pathname === item.path
+            ${location.pathname === item.path || (item.path === '/today' && location.pathname === '/')
               ? 'bg-white text-ocean-600 shadow-lg scale-105'
               : 'text-white/95 hover:bg-white/20 hover:scale-105 active:scale-95 active:bg-white/30'
             }
