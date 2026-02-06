@@ -256,22 +256,32 @@ function DailySchedulePage() {
   // 오늘 날짜 (자정에 자동 갱신)
   const [today, setToday] = useState(() => new Date().toISOString().split('T')[0]);
 
-  // 1분마다 현재 시간 업데이트 + 자정 날짜 변경 감지
+  // 1분마다 현재 시간 업데이트 (세션 상태 갱신용)
   useEffect(() => {
     const timer = setInterval(() => {
-      const now = new Date();
-      setCurrentTime(now);
-
-      // 날짜가 변경되었는지 확인
-      const newToday = now.toISOString().split('T')[0];
-      setToday(prevToday => {
-        if (prevToday !== newToday) {
-          return newToday;
-        }
-        return prevToday;
-      });
+      setCurrentTime(new Date());
     }, 60000);
     return () => clearInterval(timer);
+  }, []);
+
+  // 자정에 날짜 갱신
+  useEffect(() => {
+    const scheduleMidnightUpdate = () => {
+      const now = new Date();
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(0, 0, 0, 0);
+      const msUntilMidnight = tomorrow.getTime() - now.getTime();
+
+      return setTimeout(() => {
+        setToday(new Date().toISOString().split('T')[0]);
+        // 다음 자정을 위해 재설정
+        timerId = scheduleMidnightUpdate();
+      }, msUntilMidnight);
+    };
+
+    let timerId = scheduleMidnightUpdate();
+    return () => clearTimeout(timerId);
   }, []);
 
   useEffect(() => {
