@@ -20,15 +20,15 @@ function Navigation() {
           key={item.path}
           to={item.path}
           className={`
-            min-h-11 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-sm sm:text-base font-semibold transition-all
-            flex items-center gap-1.5 sm:gap-2
+            px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all
+            flex items-center gap-1 sm:gap-1.5
             ${location.pathname === item.path
               ? 'bg-white text-ocean-600 shadow-lg scale-105'
               : 'text-white/95 hover:bg-white/20 hover:scale-105 active:scale-95 active:bg-white/30'
             }
           `}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
           </svg>
           <span>{item.label}</span>
