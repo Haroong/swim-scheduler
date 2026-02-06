@@ -4,6 +4,7 @@ import type { DailySchedule, Session } from '../types/schedule';
 import { openSourceUrl } from '../utils/urlUtils';
 import { EmptyState, Badge } from '../components/common';
 import { Link } from 'react-router-dom';
+import { useFavorites } from '../hooks';
 
 // ===== 유틸리티 함수 =====
 
@@ -118,10 +119,14 @@ function CompactFacilityCard({
   schedule,
   colorIndex,
   defaultExpanded = true,
+  isFavorite,
+  onToggleFavorite,
 }: {
   schedule: DailySchedule;
   colorIndex: number;
   defaultExpanded?: boolean;
+  isFavorite: boolean;
+  onToggleFavorite: () => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
@@ -154,44 +159,65 @@ function CompactFacilityCard({
   };
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+    <div className={`bg-white rounded-xl border overflow-hidden ${isFavorite ? 'border-amber-300 ring-1 ring-amber-200' : 'border-slate-200'}`}>
       {/* 시설 헤더 */}
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center gap-2 p-3 hover:bg-slate-50 transition-colors"
-      >
-        {/* 컬러바 */}
-        <div className={`w-1 h-8 rounded-full ${schedule.is_closed ? 'bg-slate-300' : bgColors[color]}`} />
-
-        {/* 시설명 */}
-        <div className="flex-1 text-left">
-          <h3 className={`font-bold text-sm ${schedule.is_closed ? 'text-slate-400' : 'text-slate-800'}`}>
-            {schedule.facility_name}
-          </h3>
-          <p className="text-xs text-slate-400 mt-0.5">
-            {schedule.is_closed
-              ? '휴관'
-              : `${schedule.sessions.length}개 세션${pastCount > 0 ? ` · ${pastCount}개 종료` : ''}`}
-          </p>
-        </div>
-
-        {/* 뱃지 */}
-        {!schedule.is_closed && (
-          <Badge variant={color} size="sm">
-            {schedule.day_type}
-          </Badge>
-        )}
-
-        {/* 화살표 */}
-        <svg
-          className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+      <div className="flex items-center">
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="flex-1 flex items-center gap-2 p-3 hover:bg-slate-50 transition-colors"
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+          {/* 컬러바 */}
+          <div className={`w-1 h-8 rounded-full ${schedule.is_closed ? 'bg-slate-300' : bgColors[color]}`} />
+
+          {/* 시설명 */}
+          <div className="flex-1 text-left">
+            <h3 className={`font-bold text-sm ${schedule.is_closed ? 'text-slate-400' : 'text-slate-800'}`}>
+              {schedule.facility_name}
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {schedule.is_closed
+                ? '휴관'
+                : `${schedule.sessions.length}개 세션${pastCount > 0 ? ` · ${pastCount}개 종료` : ''}`}
+            </p>
+          </div>
+
+          {/* 뱃지 */}
+          {!schedule.is_closed && (
+            <Badge variant={color} size="sm">
+              {schedule.day_type}
+            </Badge>
+          )}
+
+          {/* 화살표 */}
+          <svg
+            className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        {/* 즐겨찾기 버튼 */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFavorite();
+          }}
+          className={`p-3 transition-colors ${isFavorite ? 'text-amber-500 hover:text-amber-600' : 'text-slate-300 hover:text-amber-400'}`}
+          aria-label={isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
+        >
+          <svg
+            className="w-5 h-5"
+            fill={isFavorite ? 'currentColor' : 'none'}
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+          </svg>
+        </button>
+      </div>
 
       {/* 세션 리스트 */}
       {isExpanded && (
@@ -252,6 +278,7 @@ function DailySchedulePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const { toggleFavorite, isFavorite } = useFavorites();
 
   // 오늘 날짜 (자정에 자동 갱신)
   const [today, setToday] = useState(() => new Date().toISOString().split('T')[0]);
@@ -414,13 +441,22 @@ function DailySchedulePage() {
             />
           ) : (
             [...schedules]
-              .sort((a, b) => Number(a.is_closed) - Number(b.is_closed))
+              .sort((a, b) => {
+                // 1. 즐겨찾기 우선
+                const aFav = isFavorite(a.facility_id) ? 0 : 1;
+                const bFav = isFavorite(b.facility_id) ? 0 : 1;
+                if (aFav !== bFav) return aFav - bFav;
+                // 2. 휴관 시설은 뒤로
+                return Number(a.is_closed) - Number(b.is_closed);
+              })
               .map((schedule, index) => (
                 <CompactFacilityCard
                   key={schedule.facility_id}
                   schedule={schedule}
                   colorIndex={index}
-                  defaultExpanded={index < 3}
+                  defaultExpanded={isFavorite(schedule.facility_id) || index < 3}
+                  isFavorite={isFavorite(schedule.facility_id)}
+                  onToggleFavorite={() => toggleFavorite(schedule.facility_id)}
                 />
               ))
           )}
