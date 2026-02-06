@@ -10,6 +10,7 @@ RUN npm ci
 # 소스 코드 복사 및 빌드
 COPY . .
 ENV VITE_API_BASE_URL=""
+ENV VITE_GA_MEASUREMENT_ID="G-HMQHJEH62Q"
 RUN npm run build
 
 # Production stage
