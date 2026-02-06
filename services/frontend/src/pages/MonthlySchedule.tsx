@@ -579,7 +579,7 @@ function MonthlySchedule() {
                 key={`${schedule.facility_id}-${schedule.valid_month}`}
                 schedule={schedule}
                 colorIndex={index}
-                defaultExpanded={index < 2}
+                defaultExpanded={false}
               />
             ))
           )}
