@@ -253,13 +253,23 @@ function DailySchedulePage() {
   const [error, setError] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // 오늘 날짜 (고정)
-  const today = useMemo(() => new Date().toISOString().split('T')[0], []);
+  // 오늘 날짜 (자정에 자동 갱신)
+  const [today, setToday] = useState(() => new Date().toISOString().split('T')[0]);
 
-  // 1분마다 현재 시간 업데이트 (세션 상태 갱신용)
+  // 1분마다 현재 시간 업데이트 + 자정 날짜 변경 감지
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentTime(new Date());
+      const now = new Date();
+      setCurrentTime(now);
+
+      // 날짜가 변경되었는지 확인
+      const newToday = now.toISOString().split('T')[0];
+      setToday(prevToday => {
+        if (prevToday !== newToday) {
+          return newToday;
+        }
+        return prevToday;
+      });
     }, 60000);
     return () => clearInterval(timer);
   }, []);
