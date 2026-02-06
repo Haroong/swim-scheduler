@@ -1,5 +1,4 @@
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom'
-import Landing from './pages/Landing'
 import MonthlySchedule from './pages/MonthlySchedule'
 import DailySchedule from './pages/DailySchedule'
 import CalendarView from './pages/CalendarView'
@@ -39,14 +38,6 @@ function Navigation() {
 }
 
 function AppLayout({ children }: { children: React.ReactNode }) {
-  const location = useLocation();
-  const isLandingPage = location.pathname === '/';
-
-  // Landing 페이지에서는 헤더/푸터 숨김
-  if (isLandingPage) {
-    return <>{children}</>;
-  }
-
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       {/* Header with Ocean Gradient & Wave Pattern */}
@@ -122,7 +113,7 @@ function App() {
     <Router>
       <AppLayout>
         <Routes>
-          <Route path="/" element={<Landing />} />
+          <Route path="/" element={<DailySchedule />} />
           <Route path="/today" element={<DailySchedule />} />
           <Route path="/monthly" element={<MonthlySchedule />} />
           <Route path="/calendar" element={<CalendarView />} />

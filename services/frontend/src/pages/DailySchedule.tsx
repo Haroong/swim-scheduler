@@ -340,7 +340,7 @@ function DailySchedulePage() {
         {/* 다른 날짜 보기 링크 */}
         <Link
           to="/calendar"
-          className="mt-3 flex items-center justify-center gap-1.5 text-sm text-white/90 hover:text-white bg-white/10 hover:bg-white/20 rounded-lg py-2 transition-colors"
+          className="mt-3 flex items-center justify-center gap-1.5 text-sm text-ocean-700 hover:text-ocean-800 bg-white/90 hover:bg-white rounded-lg py-2 font-medium transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
