@@ -365,8 +365,6 @@ function CompactFacilityCard({
   defaultExpanded?: boolean;
 }) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
-  const [isSticky, setIsSticky] = useState(false);
-  const headerRef = useRef<HTMLDivElement>(null);
 
   const nextSessionIdx = useMemo(
     () => (schedule.is_closed ? -1 : findNextSessionIndex(schedule.sessions, selectedDate)),
@@ -387,12 +385,6 @@ function CompactFacilityCard({
     emerald: 'bg-emerald-500',
   };
 
-  const stickyBgColors = {
-    ocean: 'bg-gradient-to-r from-ocean-500 to-ocean-400',
-    wave: 'bg-gradient-to-r from-wave-500 to-wave-400',
-    emerald: 'bg-gradient-to-r from-emerald-500 to-emerald-400',
-  };
-
   const parseNotes = (notesStr?: string): string[] => {
     if (!notesStr) return [];
     try {
@@ -402,86 +394,45 @@ function CompactFacilityCard({
     }
   };
 
-  // Sticky 상태 감지
-  useEffect(() => {
-    const header = headerRef.current;
-    if (!header) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setIsSticky(entry.intersectionRatio < 1);
-      },
-      { threshold: [1], rootMargin: '-1px 0px 0px 0px' }
-    );
-
-    observer.observe(header);
-    return () => observer.disconnect();
-  }, []);
-
   return (
-    <div className="bg-white rounded-xl border border-slate-200 overflow-visible">
-      {/* Sticky 시설 헤더 */}
-      <div
-        ref={headerRef}
-        className={`sticky top-0 z-10 rounded-t-xl transition-all ${
-          isSticky && !schedule.is_closed ? `${stickyBgColors[color]} shadow-md` : ''
-        }`}
+    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      {/* 시설 헤더 */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center gap-2 p-3 hover:bg-slate-50 transition-colors"
       >
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className={`w-full flex items-center gap-2 p-3 rounded-t-xl transition-colors ${
-            isSticky && !schedule.is_closed ? '' : 'hover:bg-slate-50'
-          }`}
+        {/* 컬러바 */}
+        <div className={`w-1 h-8 rounded-full ${schedule.is_closed ? 'bg-slate-300' : bgColors[color]}`} />
+
+        {/* 시설명 */}
+        <div className="flex-1 text-left">
+          <h3 className={`font-bold text-sm ${schedule.is_closed ? 'text-slate-400' : 'text-slate-800'}`}>
+            {schedule.facility_name}
+          </h3>
+          <p className="text-xs mt-0.5 text-slate-400">
+            {schedule.is_closed
+              ? '휴관'
+              : `${schedule.sessions.length}개 세션${pastCount > 0 ? ` · ${pastCount}개 종료` : ''}`}
+          </p>
+        </div>
+
+        {/* 뱃지 */}
+        {!schedule.is_closed && (
+          <Badge variant={color} size="sm">
+            {schedule.day_type}
+          </Badge>
+        )}
+
+        {/* 화살표 */}
+        <svg
+          className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''} text-slate-400`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
         >
-          {/* 컬러바 */}
-          <div className={`w-1 h-8 rounded-full ${
-            isSticky && !schedule.is_closed
-              ? 'bg-white/30'
-              : schedule.is_closed
-                ? 'bg-slate-300'
-                : bgColors[color]
-          }`} />
-
-          {/* 시설명 */}
-          <div className="flex-1 text-left">
-            <h3 className={`font-bold text-sm ${
-              isSticky && !schedule.is_closed
-                ? 'text-white'
-                : schedule.is_closed
-                  ? 'text-slate-400'
-                  : 'text-slate-800'
-            }`}>
-              {schedule.facility_name}
-            </h3>
-            <p className={`text-xs mt-0.5 ${
-              isSticky && !schedule.is_closed ? 'text-white/70' : 'text-slate-400'
-            }`}>
-              {schedule.is_closed
-                ? '휴관'
-                : `${schedule.sessions.length}개 세션${pastCount > 0 ? ` · ${pastCount}개 종료` : ''}`}
-            </p>
-          </div>
-
-          {/* 뱃지 */}
-          {!schedule.is_closed && !isSticky && (
-            <Badge variant={color} size="sm">
-              {schedule.day_type}
-            </Badge>
-          )}
-
-          {/* 화살표 */}
-          <svg
-            className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''} ${
-              isSticky && !schedule.is_closed ? 'text-white/70' : 'text-slate-400'
-            }`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-      </div>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
 
       {/* 세션 리스트 */}
       {isExpanded && (

@@ -19,6 +19,18 @@ export interface Fee {
   note: string;
 }
 
+export interface ClosureInfo {
+  is_closed: boolean;
+  closure_type: 'monthly' | 'partial';
+  reason?: string;
+  specific_dates?: number;
+  regular_closures?: {
+    day_of_week: string;
+    week_pattern: string | null;
+    reason: string | null;
+  }[];
+}
+
 export interface Schedule {
   facility_id: number;
   facility_name: string;
@@ -28,6 +40,7 @@ export interface Schedule {
   notes?: string[];
   source_url?: string;
   created_at?: string;
+  closure_info?: ClosureInfo;
 }
 
 export interface Facility {

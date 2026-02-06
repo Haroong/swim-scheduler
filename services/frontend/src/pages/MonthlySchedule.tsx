@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { scheduleApi } from '../services/api';
 import type { Facility, Schedule, Session, ScheduleDetail } from '../types/schedule';
 import { openSourceUrl } from '../utils/urlUtils';
@@ -228,7 +228,7 @@ function DayTypeSection({
   );
 }
 
-// ===== 컴팩트 시설 카드 (Sticky Header 적용) =====
+// ===== 컴팩트 시설 카드 =====
 function CompactScheduleCard({
   schedule,
   colorIndex,
@@ -241,11 +241,12 @@ function CompactScheduleCard({
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [showFees, setShowFees] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
-  const [isSticky, setIsSticky] = useState(false);
-  const headerRef = useRef<HTMLDivElement>(null);
 
   const colorSchemes = ['ocean', 'wave', 'emerald'] as const;
   const colorScheme = colorSchemes[colorIndex % 3];
+
+  // 월 전체 휴장 여부
+  const isMonthClosed = schedule.closure_info?.is_closed === true;
 
   const bgColors = {
     ocean: 'bg-ocean-500',
@@ -253,82 +254,69 @@ function CompactScheduleCard({
     emerald: 'bg-emerald-500',
   };
 
-  const stickyBgColors = {
-    ocean: 'bg-gradient-to-r from-ocean-500 to-ocean-400',
-    wave: 'bg-gradient-to-r from-wave-500 to-wave-400',
-    emerald: 'bg-gradient-to-r from-emerald-500 to-emerald-400',
-  };
-
   const totalSessions = useMemo(() => {
     return schedule.schedules.reduce((acc, d) => acc + d.sessions.length, 0);
   }, [schedule.schedules]);
 
-  // Sticky 상태 감지
-  useEffect(() => {
-    const header = headerRef.current;
-    if (!header) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setIsSticky(entry.intersectionRatio < 1);
-      },
-      { threshold: [1], rootMargin: '-1px 0px 0px 0px' }
-    );
-
-    observer.observe(header);
-    return () => observer.disconnect();
-  }, []);
-
   return (
-    <div className="bg-white rounded-xl border border-slate-200 overflow-visible">
-      {/* Sticky 헤더 */}
-      <div
-        ref={headerRef}
-        className={`sticky top-0 z-10 rounded-t-xl transition-all ${
-          isSticky ? `${stickyBgColors[colorScheme]} shadow-md` : ''
-        }`}
+    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      {/* 헤더 */}
+      <button
+        onClick={() => {
+          if (!isExpanded) {
+            trackFacilityView(schedule.facility_id, schedule.facility_name);
+          }
+          setIsExpanded(!isExpanded);
+        }}
+        className="w-full flex items-center gap-3 p-3 hover:bg-slate-50 transition-colors"
       >
-        <button
-          onClick={() => {
-            if (!isExpanded) {
-              trackFacilityView(schedule.facility_id, schedule.facility_name);
-            }
-            setIsExpanded(!isExpanded);
-          }}
-          className={`w-full flex items-center gap-3 p-3 rounded-t-xl transition-colors ${
-            isSticky ? '' : 'hover:bg-slate-50'
-          }`}
+        {/* 컬러바 */}
+        <div className={`w-1 h-10 rounded-full ${isMonthClosed ? 'bg-slate-300' : bgColors[colorScheme]}`} />
+
+        {/* 시설명 */}
+        <div className="flex-1 text-left">
+          <h3 className={`font-bold text-sm ${isMonthClosed ? 'text-slate-400' : 'text-slate-800'}`}>
+            {schedule.facility_name}
+          </h3>
+          <p className="text-xs mt-0.5 text-slate-400">
+            {isMonthClosed
+              ? '휴장'
+              : `${schedule.valid_month} · ${schedule.schedules.length}개 요일 · ${totalSessions}개 세션`}
+          </p>
+        </div>
+
+        {/* 휴장 뱃지 */}
+        {isMonthClosed && (
+          <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded-lg">
+            휴장
+          </span>
+        )}
+
+        {/* 화살표 */}
+        <svg
+          className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''} text-slate-400`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
         >
-          {/* 컬러바 */}
-          <div className={`w-1 h-10 rounded-full ${isSticky ? 'bg-white/30' : bgColors[colorScheme]}`} />
-
-          {/* 시설명 */}
-          <div className="flex-1 text-left">
-            <h3 className={`font-bold text-sm ${isSticky ? 'text-white' : 'text-slate-800'}`}>
-              {schedule.facility_name}
-            </h3>
-            <p className={`text-xs mt-0.5 ${isSticky ? 'text-white/70' : 'text-slate-400'}`}>
-              {schedule.valid_month} · {schedule.schedules.length}개 요일 · {totalSessions}개 세션
-            </p>
-          </div>
-
-          {/* 화살표 */}
-          <svg
-            className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''} ${
-              isSticky ? 'text-white/70' : 'text-slate-400'
-            }`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-      </div>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
 
       {/* 컨텐츠 */}
       {isExpanded && (
         <div className="border-t border-slate-100">
+          {/* 휴장 안내 */}
+          {isMonthClosed ? (
+            <div className="flex flex-col items-center justify-center py-8 text-slate-400">
+              <svg className="w-10 h-10 mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+              </svg>
+              <p className="text-sm font-medium">{schedule.closure_info?.reason || '휴장'}</p>
+              <p className="text-xs text-slate-300 mt-1">이번 달은 운영하지 않습니다</p>
+            </div>
+          ) : (
+          <>
           {/* 요일별 세션 */}
           <div className="p-3 space-y-2">
             {schedule.schedules.map((detail, idx) => (
@@ -432,6 +420,8 @@ function CompactScheduleCard({
               </button>
             )}
           </div>
+          </>
+          )}
         </div>
       )}
     </div>
@@ -580,14 +570,21 @@ function MonthlySchedule() {
           {schedules.length === 0 ? (
             <EmptyState message="스케줄 데이터가 없습니다." icon="clipboard" />
           ) : (
-            schedules.map((schedule, index) => (
-              <CompactScheduleCard
-                key={`${schedule.facility_id}-${schedule.valid_month}`}
-                schedule={schedule}
-                colorIndex={index}
-                defaultExpanded={false}
-              />
-            ))
+            [...schedules]
+              .sort((a, b) => {
+                // 휴장 시설은 뒤로 정렬
+                const aClosed = a.closure_info?.is_closed ? 1 : 0;
+                const bClosed = b.closure_info?.is_closed ? 1 : 0;
+                return aClosed - bClosed;
+              })
+              .map((schedule, index) => (
+                <CompactScheduleCard
+                  key={`${schedule.facility_id}-${schedule.valid_month}`}
+                  schedule={schedule}
+                  colorIndex={index}
+                  defaultExpanded={false}
+                />
+              ))
           )}
         </div>
       )}

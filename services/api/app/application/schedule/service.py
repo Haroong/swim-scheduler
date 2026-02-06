@@ -9,6 +9,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import Session, selectinload
 
 from app.domain import Facility, SwimSchedule, SwimSession, Notice
+from app.domain.closure import FacilityClosure
 from app.shared.util import get_season_from_month, should_include_schedule, should_include_session, check_facility_closure
 
 logger = logging.getLogger(__name__)
@@ -147,11 +148,52 @@ class ScheduleService:
                 key = f"{facility_id}_{valid_month}"
 
                 if key not in schedules_map:
+                    # 휴장 정보 조회
+                    closure_stmt = (
+                        select(FacilityClosure)
+                        .where(
+                            FacilityClosure.facility_id == facility_id,
+                            FacilityClosure.valid_month == valid_month
+                        )
+                    )
+                    closures = db.execute(closure_stmt).scalars().all()
+
+                    # 휴장 정보 파싱
+                    closure_info = None
+                    if closures:
+                        # 월 전체 휴장 여부 판단 (specific_date가 많거나 reason에 '휴장' 포함)
+                        specific_dates = [c for c in closures if c.closure_type == 'specific_date']
+                        regular_closures = [c for c in closures if c.closure_type == 'regular']
+
+                        # 임시휴장 판단: 특정 날짜 휴무가 15일 이상이면 월 전체 휴장으로 간주
+                        if len(specific_dates) >= 15:
+                            reason = specific_dates[0].reason if specific_dates else "임시휴장"
+                            closure_info = {
+                                "is_closed": True,
+                                "closure_type": "monthly",
+                                "reason": reason
+                            }
+                        elif specific_dates or regular_closures:
+                            # 부분 휴장 정보
+                            closure_info = {
+                                "is_closed": False,
+                                "closure_type": "partial",
+                                "specific_dates": len(specific_dates),
+                                "regular_closures": [
+                                    {
+                                        "day_of_week": c.day_of_week,
+                                        "week_pattern": c.week_pattern,
+                                        "reason": c.reason
+                                    } for c in regular_closures
+                                ]
+                            }
+
                     schedules_map[key] = {
                         "facility_id": facility_id,
                         "facility_name": facility_name,
                         "valid_month": valid_month,
-                        "schedules": {}
+                        "schedules": {},
+                        "closure_info": closure_info
                     }
 
                 # 스케줄 키 (day_type + season)
@@ -178,12 +220,15 @@ class ScheduleService:
             # 결과 변환
             result = []
             for key, data in schedules_map.items():
-                result.append({
+                item = {
                     "facility_id": data["facility_id"],
                     "facility_name": data["facility_name"],
                     "valid_month": data["valid_month"],
                     "schedules": list(data["schedules"].values())
-                })
+                }
+                if data.get("closure_info"):
+                    item["closure_info"] = data["closure_info"]
+                result.append(item)
 
             return result
 

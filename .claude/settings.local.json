@@ -67,7 +67,9 @@
       "Bash(redis-cli:*)",
       "Bash(C:/Users/absol/PyCharmProjects/swim-scheduler/services/api/venv/Scripts/python.exe:*)",
       "Bash(npx tsc:*)",
-      "WebFetch(domain:uibowl.io)"
+      "WebFetch(domain:uibowl.io)",
+      "Bash(git rebase HEAD~3 --exec 'git commit --amend -m \"\"$\\(git log -1 --format=%B | grep -v \"\"Co-Authored-By\"\"\\)\"\"')",
+      "Bash(git stash:*)"
     ]
   },
   "spinnerTipsEnabled": false
