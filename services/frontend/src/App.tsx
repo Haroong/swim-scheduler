@@ -71,7 +71,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
                     오늘수영
                   </h1>
                   <p className="text-xs sm:text-sm text-white/90 font-medium">
-                    성남시 자유수영 일정 정보
+                    성남시 자유수영 일정을 한눈에
                   </p>
                 </div>
               </Link>
