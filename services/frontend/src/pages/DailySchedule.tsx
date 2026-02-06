@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { scheduleApi } from '../services/api';
 import type { DailySchedule, Session } from '../types/schedule';
 import { openSourceUrl } from '../utils/urlUtils';
+import { trackFavoriteToggle, trackFacilityView } from '../utils/analytics';
 import { EmptyState, Badge } from '../components/common';
 import { Link } from 'react-router-dom';
 import { useFavorites } from '../hooks';
@@ -163,7 +164,12 @@ function CompactFacilityCard({
       {/* 시설 헤더 */}
       <div className="flex items-center">
         <button
-          onClick={() => setIsExpanded(!isExpanded)}
+          onClick={() => {
+            if (!isExpanded) {
+              trackFacilityView(schedule.facility_id, schedule.facility_name);
+            }
+            setIsExpanded(!isExpanded);
+          }}
           className="flex-1 flex items-center gap-2 p-3 hover:bg-slate-50 transition-colors"
         >
           {/* 컬러바 */}
@@ -203,6 +209,7 @@ function CompactFacilityCard({
         <button
           onClick={(e) => {
             e.stopPropagation();
+            trackFavoriteToggle(schedule.facility_id, schedule.facility_name, isFavorite ? 'remove' : 'add');
             onToggleFavorite();
           }}
           className={`p-3 transition-colors ${isFavorite ? 'text-amber-500 hover:text-amber-600' : 'text-slate-300 hover:text-amber-400'}`}

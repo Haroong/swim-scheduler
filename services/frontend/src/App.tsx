@@ -1,7 +1,20 @@
+import { useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom'
 import MonthlySchedule from './pages/MonthlySchedule'
 import DailySchedule from './pages/DailySchedule'
 import CalendarView from './pages/CalendarView'
+import { initGA, trackPageView } from './utils/analytics'
+
+// 페이지뷰 추적
+function PageTracker() {
+  const location = useLocation();
+
+  useEffect(() => {
+    trackPageView(location.pathname);
+  }, [location.pathname]);
+
+  return null;
+}
 
 function Navigation() {
   const location = useLocation();
@@ -109,8 +122,13 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 }
 
 function App() {
+  useEffect(() => {
+    initGA();
+  }, []);
+
   return (
     <Router>
+      <PageTracker />
       <AppLayout>
         <Routes>
           <Route path="/" element={<DailySchedule />} />

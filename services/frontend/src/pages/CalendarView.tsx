@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { scheduleApi } from '../services/api';
 import type { DailySchedule, Session, Facility } from '../types/schedule';
 import { openSourceUrl } from '../utils/urlUtils';
+import { trackFilterUse } from '../utils/analytics';
 import { EmptyState, Badge } from '../components/common';
 
 // ===== Filter Drawer 컴포넌트 =====
@@ -605,7 +606,10 @@ function CalendarView() {
       {/* Horizontal Date Picker */}
       <HorizontalDatePicker
         selectedDate={selectedDate}
-        onDateSelect={setSelectedDate}
+        onDateSelect={(date) => {
+          trackFilterUse('date', date);
+          setSelectedDate(date);
+        }}
         onTodayClick={goToToday}
       />
 
@@ -718,7 +722,10 @@ function CalendarView() {
         onClose={() => setIsFilterOpen(false)}
         facilities={facilities}
         selectedFacility={selectedFacility}
-        onFacilityChange={setSelectedFacility}
+        onFacilityChange={(value) => {
+          trackFilterUse('facility', value || '전체');
+          setSelectedFacility(value);
+        }}
       />
     </div>
   );

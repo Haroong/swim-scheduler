@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { scheduleApi } from '../services/api';
 import type { Facility, Schedule, Session, ScheduleDetail } from '../types/schedule';
 import { openSourceUrl } from '../utils/urlUtils';
+import { trackFilterUse, trackFacilityView } from '../utils/analytics';
 import { EmptyState, Badge } from '../components/common';
 
 // ===== Filter Drawer 컴포넌트 =====
@@ -288,7 +289,12 @@ function CompactScheduleCard({
         }`}
       >
         <button
-          onClick={() => setIsExpanded(!isExpanded)}
+          onClick={() => {
+            if (!isExpanded) {
+              trackFacilityView(schedule.facility_id, schedule.facility_name);
+            }
+            setIsExpanded(!isExpanded);
+          }}
           className={`w-full flex items-center gap-3 p-3 rounded-t-xl transition-colors ${
             isSticky ? '' : 'hover:bg-slate-50'
           }`}
@@ -595,9 +601,15 @@ function MonthlySchedule() {
         onClose={() => setIsFilterOpen(false)}
         facilities={facilities}
         selectedFacility={selectedFacility}
-        onFacilityChange={setSelectedFacility}
+        onFacilityChange={(value) => {
+          trackFilterUse('facility', value || '전체');
+          setSelectedFacility(value);
+        }}
         selectedMonth={selectedMonth}
-        onMonthChange={setSelectedMonth}
+        onMonthChange={(value) => {
+          trackFilterUse('month', value);
+          setSelectedMonth(value);
+        }}
       />
     </div>
   );
