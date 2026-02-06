@@ -351,23 +351,23 @@ function DailySchedulePage() {
 
   return (
     <div className="space-y-4">
-      {/* 오늘 날짜 헤더 (고정) */}
-      <div className="bg-gradient-to-r from-ocean-500 to-wave-500 rounded-xl p-4 text-white">
+      {/* 오늘 날짜 헤더 */}
+      <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-white/80 text-sm font-medium">오늘</p>
-            <h1 className="text-2xl font-bold">{formatDate()}</h1>
+            <p className="text-ocean-600 text-sm font-medium">오늘</p>
+            <h1 className="text-2xl font-bold text-slate-800">{formatDate()}</h1>
           </div>
           <div className="text-right">
-            <p className="text-white/80 text-sm font-medium">현재 시간</p>
-            <p className="text-xl font-bold font-mono">{formatTime()}</p>
+            <p className="text-slate-400 text-sm font-medium">현재 시간</p>
+            <p className="text-xl font-bold font-mono text-slate-700">{formatTime()}</p>
           </div>
         </div>
 
         {/* 다른 날짜 보기 링크 */}
         <Link
           to="/calendar"
-          className="mt-3 flex items-center justify-center gap-1.5 text-sm text-ocean-700 hover:text-ocean-800 bg-white/90 hover:bg-white rounded-lg py-2 font-medium transition-colors"
+          className="mt-3 flex items-center justify-center gap-1.5 text-sm text-white bg-ocean-500 hover:bg-ocean-600 rounded-lg py-2 font-medium transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
