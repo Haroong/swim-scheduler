@@ -102,12 +102,12 @@ function AppLayout({ children }: { children: React.ReactNode }) {
               매일 업데이트 · 시설별 상세 일정은 직접 확인해주세요
             </p>
             <p className="text-xs text-slate-400">
-              문의{' '}
+              © 2026 오늘수영 ·{' '}
               <a
                 href="mailto:absolutecool18@gmail.com"
                 className="hover:text-ocean-600 transition-colors"
               >
-                absolutecool18@gmail.com
+                문의하기
               </a>
             </p>
           </div>
