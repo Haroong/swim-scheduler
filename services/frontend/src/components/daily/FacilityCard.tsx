@@ -1,4 +1,4 @@
-import type { DailySchedule } from '../../types/schedule';
+import type { DailySchedule, Session } from '../../types/schedule';
 import { trackFavoriteToggle } from '../../utils/analytics';
 
 interface FacilityCardProps {
@@ -8,8 +8,54 @@ interface FacilityCardProps {
   onClick: () => void;
 }
 
-// 종료된 세션 수 계산
-function countPastSessions(schedule: DailySchedule): number {
+type AvailabilityStatus =
+  | { status: 'closed'; label: string }
+  | { status: 'available'; label: string; session: Session }
+  | { status: 'upcoming'; label: string; session: Session }
+  | { status: 'ended'; label: string };
+
+// 현재 이용 가능 상태 계산
+function getAvailabilityStatus(schedule: DailySchedule): AvailabilityStatus {
+  if (schedule.is_closed) {
+    return { status: 'closed', label: schedule.closure_reason || '휴관' };
+  }
+
+  if (schedule.sessions.length === 0) {
+    return { status: 'closed', label: '세션 없음' };
+  }
+
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  // 현재 진행 중인 세션 찾기
+  const currentSession = schedule.sessions.find((s) => {
+    const [startH, startM] = s.start_time.split(':').map(Number);
+    const [endH, endM] = s.end_time.split(':').map(Number);
+    const startMinutes = startH * 60 + startM;
+    const endMinutes = endH * 60 + endM;
+    return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+  });
+
+  if (currentSession) {
+    return { status: 'available', label: '이용 가능', session: currentSession };
+  }
+
+  // 다음 세션 찾기
+  const nextSession = schedule.sessions.find((s) => {
+    const [startH, startM] = s.start_time.split(':').map(Number);
+    const startMinutes = startH * 60 + startM;
+    return currentMinutes < startMinutes;
+  });
+
+  if (nextSession) {
+    return { status: 'upcoming', label: `${nextSession.start_time}~`, session: nextSession };
+  }
+
+  return { status: 'ended', label: '오늘 종료' };
+}
+
+// 남은 세션 수 계산
+function countRemainingSessions(schedule: DailySchedule): number {
   if (schedule.is_closed) return 0;
 
   const now = new Date();
@@ -18,9 +64,33 @@ function countPastSessions(schedule: DailySchedule): number {
   return schedule.sessions.filter((session) => {
     const [endHour, endMin] = session.end_time.split(':').map(Number);
     const endMinutes = endHour * 60 + endMin;
-    return currentMinutes >= endMinutes;
+    return currentMinutes < endMinutes;
   }).length;
 }
+
+// 상태별 스타일 설정
+const statusStyles = {
+  available: {
+    badge: 'bg-emerald-100 text-emerald-700',
+    dot: 'bg-emerald-500',
+    icon: '●',
+  },
+  upcoming: {
+    badge: 'bg-amber-100 text-amber-700',
+    dot: 'bg-amber-500',
+    icon: '○',
+  },
+  ended: {
+    badge: 'bg-slate-100 text-slate-500',
+    dot: 'bg-slate-400',
+    icon: '—',
+  },
+  closed: {
+    badge: 'bg-slate-100 text-slate-400',
+    dot: 'bg-slate-300',
+    icon: '✕',
+  },
+};
 
 export function FacilityCard({
   schedule,
@@ -28,16 +98,17 @@ export function FacilityCard({
   onToggleFavorite,
   onClick,
 }: FacilityCardProps) {
-  const sessionCount = schedule.sessions.length;
-  const pastCount = countPastSessions(schedule);
+  const availability = getAvailabilityStatus(schedule);
+  const remainingCount = countRemainingSessions(schedule);
+  const style = statusStyles[availability.status];
 
   return (
     <div
       className={`
         relative bg-white rounded-xl border overflow-hidden
-        transition-all active:scale-[0.98]
+        transition-all active:scale-[0.98] hover:shadow-md hover:border-ocean-200
         ${isFavorite ? 'border-amber-300 ring-1 ring-amber-200' : 'border-slate-200'}
-        ${schedule.is_closed ? 'opacity-60' : 'hover:shadow-md hover:border-ocean-200'}
+        ${availability.status === 'closed' ? 'bg-slate-50' : ''}
       `}
     >
       {/* 메인 클릭 영역 */}
@@ -45,15 +116,34 @@ export function FacilityCard({
         onClick={onClick}
         className="w-full p-4 text-left"
       >
-        <h3 className={`font-bold text-base truncate pr-8 ${schedule.is_closed ? 'text-slate-400' : 'text-slate-800'}`}>
+        <h3 className={`font-bold text-base truncate pr-8 ${availability.status === 'closed' ? 'text-slate-400' : 'text-slate-800'}`}>
           {schedule.facility_name}
         </h3>
-        <p className="text-xs text-slate-400 mt-0.5">
-          {schedule.is_closed
-            ? (schedule.closure_reason || '휴관')
-            : `${sessionCount}개 세션${pastCount > 0 ? ` · ${pastCount}개 종료` : ''}`
-          }
-        </p>
+
+        {/* 상태 배지 */}
+        <div className="flex items-center gap-2 mt-1.5">
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${style.badge}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${style.dot}`} />
+            {availability.status === 'available' ? '이용 가능' : availability.label}
+          </span>
+
+          {/* 추가 정보 */}
+          {availability.status === 'available' && 'session' in availability && (
+            <span className="text-xs text-slate-400">
+              ~{availability.session.end_time}까지
+            </span>
+          )}
+          {availability.status === 'upcoming' && remainingCount > 0 && (
+            <span className="text-xs text-slate-400">
+              오늘 {remainingCount}개 세션
+            </span>
+          )}
+          {availability.status === 'ended' && (
+            <span className="text-xs text-slate-400">
+              {schedule.sessions.length}개 세션 모두 종료
+            </span>
+          )}
+        </div>
       </button>
 
       {/* 즐겨찾기 버튼 (우측 상단) */}

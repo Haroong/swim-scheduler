@@ -14,25 +14,14 @@ export function FacilityGrid({
   onSelectFacility,
   toggleFavorite,
 }: FacilityGridProps) {
-  // 즐겨찾기 시설과 나머지 분리
+  // 즐겨찾기 시설과 나머지 분리 (외부 정렬 순서 유지)
   const favoriteSchedules = schedules.filter((s) => favorites.includes(s.facility_id));
   const otherSchedules = schedules.filter((s) => !favorites.includes(s.facility_id));
-
-  // 휴관 시설은 뒤로
-  const sortByOpen = (a: DailySchedule, b: DailySchedule) =>
-    Number(a.is_closed) - Number(b.is_closed);
-
-  const sortedFavorites = [...favoriteSchedules].sort(sortByOpen);
-  const sortedOthers = [...otherSchedules].sort(sortByOpen);
-
-  // 운영/휴관 카운트
-  const operatingCount = schedules.filter((s) => !s.is_closed).length;
-  const closedCount = schedules.filter((s) => s.is_closed).length;
 
   return (
     <div className="space-y-6">
       {/* 즐겨찾기 섹션 */}
-      {sortedFavorites.length > 0 && (
+      {favoriteSchedules.length > 0 && (
         <section>
           <div className="flex items-center gap-2 mb-3">
             <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 24 24">
@@ -40,14 +29,14 @@ export function FacilityGrid({
             </svg>
             <h2 className="text-sm font-semibold text-slate-700">즐겨찾기</h2>
           </div>
-          <div className="grid grid-cols-1 gap-3">
-            {sortedFavorites.map((schedule) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {favoriteSchedules.map((schedule) => (
               <FacilityCard
                 key={schedule.facility_id}
                 schedule={schedule}
                 isFavorite={true}
                 onToggleFavorite={() => toggleFavorite(schedule.facility_id)}
-                onClick={() => !schedule.is_closed && onSelectFacility(schedule.facility_id)}
+                onClick={() => onSelectFacility(schedule.facility_id)}
               />
             ))}
           </div>
@@ -55,31 +44,22 @@ export function FacilityGrid({
       )}
 
       {/* 전체 수영장 섹션 */}
-      {sortedOthers.length > 0 && (
+      {otherSchedules.length > 0 && (
         <section>
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-              <h2 className="text-sm font-semibold text-slate-700">전체 수영장</h2>
-            </div>
-            <span className="inline-flex items-center gap-1 text-xs text-slate-500">
-              <svg className="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              운영 {operatingCount}개
-              {closedCount > 0 && ` · 휴관 ${closedCount}개`}
-            </span>
+          <div className="flex items-center gap-2 mb-3">
+            <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            <h2 className="text-sm font-semibold text-slate-700">전체 수영장</h2>
           </div>
-          <div className="grid grid-cols-1 gap-3">
-            {sortedOthers.map((schedule) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {otherSchedules.map((schedule) => (
               <FacilityCard
                 key={schedule.facility_id}
                 schedule={schedule}
                 isFavorite={false}
                 onToggleFavorite={() => toggleFavorite(schedule.facility_id)}
-                onClick={() => !schedule.is_closed && onSelectFacility(schedule.facility_id)}
+                onClick={() => onSelectFacility(schedule.facility_id)}
               />
             ))}
           </div>
