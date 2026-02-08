@@ -13,6 +13,8 @@ class FacilityResponse(BaseModel):
     """시설 응답 스키마"""
     facility_id: int
     facility_name: str
+    address: Optional[str] = None
+    website_url: Optional[str] = None
     latest_month: Optional[str] = None
     schedule_count: int
 

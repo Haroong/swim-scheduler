@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom'
 import DailySchedule from './pages/DailySchedule'
 import FacilityPage from './pages/FacilityPage'
@@ -15,7 +15,7 @@ function PageTracker() {
   return null;
 }
 
-function Navigation() {
+function Navigation({ isCompact = false }: { isCompact?: boolean }) {
   const location = useLocation();
 
   const navItems = [
@@ -30,15 +30,15 @@ function Navigation() {
           key={item.path}
           to={item.path}
           className={`
-            px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all
-            flex items-center gap-1 sm:gap-1.5
+            rounded-lg font-medium transition-all flex items-center
+            ${isCompact ? 'px-2.5 py-1.5 text-xs gap-1' : 'px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm gap-1 sm:gap-1.5'}
             ${location.pathname === item.path || (item.path === '/today' && location.pathname === '/')
               ? 'bg-white text-ocean-600 shadow-lg scale-105'
               : 'text-white/95 hover:bg-white/20 hover:scale-105 active:scale-95 active:bg-white/30'
             }
           `}
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className={`transition-all ${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
           </svg>
           <span>{item.label}</span>
@@ -49,35 +49,47 @@ function Navigation() {
 }
 
 function AppLayout({ children }: { children: React.ReactNode }) {
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       {/* Header with Ocean Gradient & Wave Pattern */}
-      <header className="bg-gradient-to-r from-ocean-600 via-ocean-500 to-wave-500 sticky top-0 z-50 shadow-lg relative overflow-hidden">
+      <header className={`
+        bg-gradient-to-r from-ocean-600 via-ocean-500 to-wave-500 sticky top-0 z-50 shadow-lg relative overflow-hidden
+        transition-all duration-300
+      `}>
           {/* Wave Pattern Background */}
-          <div className="absolute inset-0 opacity-10">
+          <div className={`absolute inset-0 transition-opacity duration-300 ${isScrolled ? 'opacity-5' : 'opacity-10'}`}>
             <svg className="absolute bottom-0 w-full h-20" viewBox="0 0 1440 100" preserveAspectRatio="none">
               <path fill="white" d="M0,50 C240,80 480,20 720,50 C960,80 1200,20 1440,50 L1440,100 L0,100 Z" />
             </svg>
           </div>
 
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 relative">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className={`max-w-6xl mx-auto px-4 sm:px-6 relative transition-all duration-300 ${isScrolled ? 'py-2' : 'py-4'}`}>
+            <div className={`flex items-center justify-between transition-all duration-300 ${isScrolled ? 'gap-2' : 'flex-col sm:flex-row gap-4'}`}>
               <Link to="/" className="flex items-center gap-3 group">
-                <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center group-hover:bg-white/30 transition-all group-hover:scale-105 shadow-lg">
-                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                  </svg>
-                </div>
                 <div>
-                  <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
+                  <h1 className={`font-bold text-white flex items-center gap-2 transition-all ${isScrolled ? 'text-lg' : 'text-xl sm:text-2xl'}`}>
                     오늘수영
                   </h1>
-                  <p className="text-xs sm:text-sm text-white/90 font-medium">
+                  <p className={`
+                    text-white/90 font-medium transition-all duration-300 overflow-hidden
+                    ${isScrolled ? 'max-h-0 opacity-0' : 'max-h-6 opacity-100 text-xs sm:text-sm'}
+                  `}>
                     성남시 자유수영 일정을 한눈에
                   </p>
                 </div>
               </Link>
-              <Navigation />
+              <Navigation isCompact={isScrolled} />
             </div>
           </div>
         </header>

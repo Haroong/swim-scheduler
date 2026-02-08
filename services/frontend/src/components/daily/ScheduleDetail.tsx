@@ -76,7 +76,7 @@ export function ScheduleDetail({
       <div className="flex items-center gap-3">
         <button
           onClick={onBack}
-          className="p-2 -ml-2 rounded-lg hover:bg-slate-100 transition-colors"
+          className="min-w-11 min-h-11 -ml-2 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors"
           aria-label="뒤로가기"
         >
           <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -93,14 +93,14 @@ export function ScheduleDetail({
           </p>
         </div>
 
-        {/* 즐겨찾기 버튼 */}
+        {/* 즐겨찾기 버튼 - 44x44 터치 영역 확보 */}
         <button
           onClick={() => {
             trackFavoriteToggle(schedule.facility_id, schedule.facility_name, isFavorite ? 'remove' : 'add');
             onToggleFavorite();
           }}
           className={`
-            p-2 rounded-lg transition-colors
+            min-w-11 min-h-11 flex items-center justify-center rounded-lg transition-colors
             ${isFavorite ? 'text-amber-500 bg-amber-50' : 'text-slate-300 hover:text-amber-400 hover:bg-amber-50'}
           `}
           aria-label={isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}

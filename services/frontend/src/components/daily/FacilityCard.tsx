@@ -165,7 +165,7 @@ export function FacilityCard({
         </div>
       </button>
 
-      {/* 즐겨찾기 버튼 (우측 상단) */}
+      {/* 즐겨찾기 버튼 (우측 상단) - 44x44 터치 영역 확보 */}
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -173,7 +173,7 @@ export function FacilityCard({
           onToggleFavorite();
         }}
         className={`
-          absolute top-3 right-3 p-1.5 rounded-full transition-colors
+          absolute top-1 right-1 min-w-11 min-h-11 flex items-center justify-center rounded-full transition-colors
           ${isFavorite ? 'text-amber-500 bg-amber-50' : 'text-slate-300 hover:text-amber-400 hover:bg-amber-50'}
         `}
         aria-label={isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
