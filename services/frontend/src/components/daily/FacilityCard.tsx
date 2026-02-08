@@ -102,13 +102,19 @@ export function FacilityCard({
   const remainingCount = countRemainingSessions(schedule);
   const style = statusStyles[availability.status];
 
+  const isClosed = availability.status === 'closed';
+
   return (
     <div
       className={`
-        relative bg-white rounded-xl border overflow-hidden
-        transition-all active:scale-[0.98] hover:shadow-md hover:border-ocean-200
-        ${isFavorite ? 'border-amber-300 ring-1 ring-amber-200' : 'border-slate-200'}
-        ${availability.status === 'closed' ? 'bg-slate-50' : ''}
+        relative rounded-xl border overflow-hidden
+        transition-all active:scale-[0.98]
+        ${isClosed
+          ? 'bg-slate-100 border-slate-200 border-dashed'
+          : 'bg-white hover:shadow-md hover:border-ocean-200'
+        }
+        ${isFavorite && !isClosed ? 'border-amber-300 ring-1 ring-amber-200' : ''}
+        ${!isFavorite && !isClosed ? 'border-slate-200' : ''}
       `}
     >
       {/* 메인 클릭 영역 */}
@@ -116,33 +122,46 @@ export function FacilityCard({
         onClick={onClick}
         className="w-full p-4 text-left"
       >
-        <h3 className={`font-bold text-base truncate pr-8 ${availability.status === 'closed' ? 'text-slate-400' : 'text-slate-800'}`}>
-          {schedule.facility_name}
-        </h3>
+        <div className="flex items-start gap-3">
+          {/* 휴관 아이콘 */}
+          {isClosed && (
+            <div className="flex-shrink-0 w-8 h-8 bg-slate-200 rounded-lg flex items-center justify-center">
+              <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+          )}
 
-        {/* 상태 배지 */}
-        <div className="flex items-center gap-2 mt-1.5">
-          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${style.badge}`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${style.dot}`} />
-            {availability.status === 'available' ? '이용 가능' : availability.label}
-          </span>
+          <div className="flex-1 min-w-0">
+            <h3 className={`font-bold text-base truncate pr-8 ${isClosed ? 'text-slate-400' : 'text-slate-800'}`}>
+              {schedule.facility_name}
+            </h3>
 
-          {/* 추가 정보 */}
-          {availability.status === 'available' && 'session' in availability && (
-            <span className="text-xs text-slate-400">
-              ~{availability.session.end_time}까지
-            </span>
-          )}
-          {availability.status === 'upcoming' && remainingCount > 0 && (
-            <span className="text-xs text-slate-400">
-              오늘 {remainingCount}개 세션
-            </span>
-          )}
-          {availability.status === 'ended' && (
-            <span className="text-xs text-slate-400">
-              {schedule.sessions.length}개 세션 모두 종료
-            </span>
-          )}
+            {/* 상태 배지 */}
+            <div className="flex items-center gap-2 mt-1.5">
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${style.badge}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${style.dot}`} />
+                {availability.status === 'available' ? '이용 가능' : availability.label}
+              </span>
+
+              {/* 추가 정보 */}
+              {availability.status === 'available' && 'session' in availability && (
+                <span className="text-xs text-slate-400">
+                  ~{availability.session.end_time}까지
+                </span>
+              )}
+              {availability.status === 'upcoming' && remainingCount > 0 && (
+                <span className="text-xs text-slate-400">
+                  오늘 {remainingCount}개 세션
+                </span>
+              )}
+              {availability.status === 'ended' && (
+                <span className="text-xs text-slate-400">
+                  {schedule.sessions.length}개 세션 모두 종료
+                </span>
+              )}
+            </div>
+          </div>
         </div>
       </button>
 
