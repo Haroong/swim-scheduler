@@ -35,6 +35,7 @@ function SimpleFacilityCard({
         </h3>
       </button>
 
+      {/* 즐겨찾기 버튼 - 44x44 터치 영역 확보 */}
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -42,7 +43,7 @@ function SimpleFacilityCard({
           onToggleFavorite();
         }}
         className={`
-          absolute top-1/2 -translate-y-1/2 right-3 p-1.5 rounded-full transition-colors
+          absolute top-1/2 -translate-y-1/2 right-1 min-w-11 min-h-11 flex items-center justify-center rounded-full transition-colors
           ${isFavorite ? 'text-amber-500 bg-amber-50' : 'text-slate-300 hover:text-amber-400 hover:bg-amber-50'}
         `}
         aria-label={isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
@@ -192,6 +193,8 @@ function FacilityPage() {
       <FacilityDetail
         facilityId={selectedSchedule.facility_id}
         facilityName={selectedSchedule.facility_name}
+        address={selectedSchedule.address}
+        websiteUrl={selectedSchedule.website_url}
         isFavorite={isFavorite(selectedSchedule.facility_id)}
         onToggleFavorite={() => toggleFavorite(selectedSchedule.facility_id)}
         onBack={handleBack}

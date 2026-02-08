@@ -52,6 +52,8 @@ export interface Facility {
 export interface DailySchedule {
   facility_id: number;
   facility_name: string;
+  address?: string | null;
+  website_url?: string | null;
   date: string;
   day_type: string;
   season: string;

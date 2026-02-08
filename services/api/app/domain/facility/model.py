@@ -15,6 +15,8 @@ class Facility(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String(100), nullable=False)
+    address = Column(String(200), nullable=True)
+    website_url = Column(String(500), nullable=True)
 
     # Relationships
     schedules = relationship("SwimSchedule", back_populates="facility", lazy="selectin")

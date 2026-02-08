@@ -35,11 +35,13 @@ class ScheduleService:
                 select(
                     Facility.id,
                     Facility.name,
+                    Facility.address,
+                    Facility.website_url,
                     func.max(SwimSchedule.valid_month).label('latest_month'),
                     func.count(func.distinct(SwimSchedule.id)).label('schedule_count')
                 )
                 .outerjoin(SwimSchedule)
-                .group_by(Facility.id, Facility.name)
+                .group_by(Facility.id, Facility.name, Facility.address, Facility.website_url)
                 .order_by(Facility.name)
             )
 
@@ -50,6 +52,8 @@ class ScheduleService:
                 facilities.append({
                     "facility_id": row.id,
                     "facility_name": row.name,
+                    "address": row.address,
+                    "website_url": row.website_url,
                     "latest_month": row.latest_month if row.latest_month else None,
                     "schedule_count": row.schedule_count
                 })
@@ -320,6 +324,8 @@ class ScheduleService:
                     facilities_map[facility_id] = {
                         "facility_id": facility_id,
                         "facility_name": facility_name,
+                        "address": schedule.facility.address,
+                        "website_url": schedule.facility.website_url,
                         "date": date_str,
                         "day_type": schedule.day_type,
                         "season": schedule.season if schedule.season else "",
