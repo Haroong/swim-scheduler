@@ -48,7 +48,7 @@ function getAvailabilityStatus(schedule: DailySchedule): AvailabilityStatus {
   });
 
   if (nextSession) {
-    return { status: 'upcoming', label: `${nextSession.start_time}~`, session: nextSession };
+    return { status: 'upcoming', label: `${nextSession.start_time.substring(0, 5)}~`, session: nextSession };
   }
 
   return { status: 'ended', label: '오늘 종료' };
@@ -147,7 +147,7 @@ export function FacilityCard({
               {/* 추가 정보 */}
               {availability.status === 'available' && 'session' in availability && (
                 <span className="text-xs text-slate-400">
-                  ~{availability.session.end_time}까지
+                  ~{availability.session.end_time.substring(0, 5)}까지
                 </span>
               )}
               {availability.status === 'upcoming' && remainingCount > 0 && (
