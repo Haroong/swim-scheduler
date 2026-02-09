@@ -359,8 +359,16 @@ class ScheduleService:
                         "lanes": session.lanes
                     })
 
+            # 6. 휴장 시설 추가 (스케줄은 없지만 Notice가 있고 전체 휴장인 시설)
+            closed_facilities = ScheduleService._get_closed_facilities(
+                db, valid_month, set(facilities_map.keys()), date_str, day_type
+            )
+            for closed_facility in closed_facilities:
+                if closed_facility["facility_id"] not in facilities_map:
+                    facilities_map[closed_facility["facility_id"]] = closed_facility
+
             result = list(facilities_map.values())
-            logger.info(f"조회 결과: {len(result)}개 시설")
+            logger.info(f"조회 결과: {len(result)}개 시설 (휴장 포함)")
 
             return result
 
@@ -369,6 +377,96 @@ class ScheduleService:
             return []
         except Exception as e:
             logger.error(f"일별 스케줄 조회 실패: {e}")
+            return []
+
+    @staticmethod
+    def _get_closed_facilities(
+        db: Session,
+        valid_month: str,
+        existing_facility_ids: set,
+        date_str: str,
+        day_type: str
+    ) -> List[dict]:
+        """
+        전체 휴장 시설 조회 (스케줄이 없지만 Notice와 휴장 정보가 있는 시설)
+
+        Args:
+            db: SQLAlchemy Session
+            valid_month: 적용 월 (YYYY-MM)
+            existing_facility_ids: 이미 조회된 시설 ID set
+            date_str: 날짜 문자열
+            day_type: 요일 타입
+
+        Returns:
+            휴장 시설 목록
+        """
+        try:
+            # Notice가 있지만 스케줄이 없는 시설 조회
+            # 1. 해당 월에 Notice가 있는 시설
+            notice_stmt = (
+                select(Notice)
+                .join(Notice.facility)
+                .where(Notice.valid_date == valid_month)
+            )
+            notices = db.execute(notice_stmt).scalars().all()
+
+            closed_facilities = []
+            for notice in notices:
+                facility_id = notice.facility_id
+
+                # 이미 스케줄이 있는 시설은 제외
+                if facility_id in existing_facility_ids:
+                    continue
+
+                # 해당 시설에 스케줄이 있는지 확인
+                schedule_check_stmt = (
+                    select(func.count(SwimSchedule.id))
+                    .where(
+                        SwimSchedule.facility_id == facility_id,
+                        SwimSchedule.valid_month == valid_month
+                    )
+                )
+                schedule_count = db.execute(schedule_check_stmt).scalar()
+
+                if schedule_count > 0:
+                    # 스케줄이 있으면 휴장 시설이 아님
+                    continue
+
+                # 휴장 정보 조회 (closure_date가 NULL인 전체 휴장 레코드)
+                closure_stmt = (
+                    select(FacilityClosure)
+                    .where(
+                        FacilityClosure.facility_id == facility_id,
+                        FacilityClosure.valid_month == valid_month,
+                        FacilityClosure.closure_date.is_(None)  # 전체 휴장 표시
+                    )
+                )
+                full_closure = db.execute(closure_stmt).scalar_one_or_none()
+
+                if full_closure:
+                    # 시설 정보 조회
+                    facility = notice.facility
+
+                    closed_facilities.append({
+                        "facility_id": facility_id,
+                        "facility_name": facility.name,
+                        "address": facility.address,
+                        "website_url": facility.website_url,
+                        "date": date_str,
+                        "day_type": day_type,
+                        "season": "",
+                        "valid_month": valid_month,
+                        "sessions": [],
+                        "source_url": notice.source_url,
+                        "notice_title": notice.title,
+                        "is_closed": True,
+                        "closure_reason": full_closure.reason or "수영장 임시휴장"
+                    })
+
+            return closed_facilities
+
+        except Exception as e:
+            logger.error(f"휴장 시설 조회 실패: {e}")
             return []
 
     @staticmethod

@@ -71,10 +71,23 @@ class SwimRepository:
 
             # 3. schedule + session 저장
             schedules = data.get("schedules", [])
-            for schedule in schedules:
-                schedule_id = self._save_schedule(cursor, facility_id, notice_id, schedule, valid_date)
-                sessions = schedule.get("sessions", [])
-                self._save_sessions(cursor, schedule_id, sessions)
+            notes = data.get("notes", [])
+
+            # 수영장 미운영 체크 (schedules가 비어있고 notes에 미운영 관련 내용이 있는 경우)
+            is_pool_closed = (
+                len(schedules) == 0 and
+                any("미운영" in note or "휴장" in note or "휴관" in note for note in notes)
+            )
+
+            if is_pool_closed:
+                # 수영장 휴장 시 특별 closure 레코드 생성
+                self._save_pool_closure(cursor, facility_id, notice_id, valid_date, notes)
+                logger.info(f"수영장 휴장 저장: {facility_name} ({valid_date})")
+            else:
+                for schedule in schedules:
+                    schedule_id = self._save_schedule(cursor, facility_id, notice_id, schedule, valid_date)
+                    sessions = schedule.get("sessions", [])
+                    self._save_sessions(cursor, schedule_id, sessions)
 
             # 4. fee 저장
             fees = data.get("fees", [])
@@ -198,6 +211,25 @@ class SwimRepository:
                     fee.get("note", ""),
                 )
             )
+
+    def _save_pool_closure(self, cursor, facility_id: int, notice_id: int,
+                           valid_month: str, notes: List[str]):
+        """수영장 전체 휴장 저장 (해당 월 전체 미운영)"""
+        # notes에서 휴장 사유 추출
+        reason = "수영장 임시휴장"
+        for note in notes:
+            if "미운영" in note or "휴장" in note or "휴관" in note:
+                reason = note
+                break
+
+        # 전체 휴장을 나타내는 closure 레코드 생성
+        # closure_type='specific_date'로 저장하되, closure_date를 NULL로 두어 전체 휴장 표시
+        cursor.execute(
+            """INSERT INTO facility_closure
+               (facility_id, notice_id, valid_month, closure_type, reason)
+               VALUES (%s, %s, %s, 'specific_date', %s)""",
+            (facility_id, notice_id, valid_month, reason)
+        )
 
     def _save_closures(self, cursor, facility_id: int, notice_id: int,
                        valid_month: str, closures: List[dict]):
