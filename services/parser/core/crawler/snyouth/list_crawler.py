@@ -5,6 +5,7 @@
 from bs4 import BeautifulSoup
 from typing import List, Dict, Optional
 import logging
+import requests
 
 from core.crawler.base.list_crawler import BaseListCrawler
 from core.models.crawler import PostSummary
