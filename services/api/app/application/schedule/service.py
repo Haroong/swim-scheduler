@@ -432,36 +432,36 @@ class ScheduleService:
                     # 스케줄이 있으면 휴장 시설이 아님
                     continue
 
-                # 휴장 정보 조회 (closure_date가 NULL인 전체 휴장 레코드)
+                # 스케줄이 없는 시설은 휴장으로 처리
+                # 휴장 사유 조회 (있으면 사용)
                 closure_stmt = (
                     select(FacilityClosure)
                     .where(
                         FacilityClosure.facility_id == facility_id,
-                        FacilityClosure.valid_month == valid_month,
-                        FacilityClosure.closure_date.is_(None)  # 전체 휴장 표시
+                        FacilityClosure.valid_month == valid_month
                     )
+                    .limit(1)
                 )
-                full_closure = db.execute(closure_stmt).scalar_one_or_none()
+                closure = db.execute(closure_stmt).scalar_one_or_none()
 
-                if full_closure:
-                    # 시설 정보 조회
-                    facility = notice.facility
+                # 시설 정보 조회
+                facility = notice.facility
 
-                    closed_facilities.append({
-                        "facility_id": facility_id,
-                        "facility_name": facility.name,
-                        "address": facility.address,
-                        "website_url": facility.website_url,
-                        "date": date_str,
-                        "day_type": day_type,
-                        "season": "",
-                        "valid_month": valid_month,
-                        "sessions": [],
-                        "source_url": notice.source_url,
-                        "notice_title": notice.title,
-                        "is_closed": True,
-                        "closure_reason": full_closure.reason or "수영장 임시휴장"
-                    })
+                closed_facilities.append({
+                    "facility_id": facility_id,
+                    "facility_name": facility.name,
+                    "address": facility.address,
+                    "website_url": facility.website_url,
+                    "date": date_str,
+                    "day_type": day_type,
+                    "season": "",
+                    "valid_month": valid_month,
+                    "sessions": [],
+                    "source_url": notice.source_url,
+                    "notice_title": notice.title,
+                    "is_closed": True,
+                    "closure_reason": closure.reason if closure else "수영장 정기휴장"
+                })
 
             return closed_facilities
 

@@ -139,13 +139,14 @@ class LLMParser:
             logger.error(f"자유수영 스케줄 파싱 실패: {e}")
             return None
 
-    def parse_closures(self, raw_text: str, facility_name: str = "") -> list[ClosureData]:
+    def parse_closures(self, raw_text: str, facility_name: str = "", notice_date: str = "") -> list[ClosureData]:
         """
         raw_text에서 휴무일 정보만 추출
 
         Args:
             raw_text: HWP/PDF에서 추출한 원문 텍스트
             facility_name: 시설명 (힌트로 제공)
+            notice_date: 공지 등록일 (연도 결정에 사용)
 
         Returns:
             ClosureData 리스트 (휴무일 정보가 없으면 빈 리스트)
@@ -160,6 +161,20 @@ class LLMParser:
 
         # 휴무일 전용 프롬프트 구성
         prompt = CLOSURE_EXTRACTION_PROMPT + raw_text[:8000]
+
+        if notice_date:
+            # 등록일에서 연도와 월 추출
+            date_match = re.search(r'(\d{4})-(\d{2})', notice_date)
+            if date_match:
+                reg_year, reg_month = int(date_match.group(1)), int(date_match.group(2))
+                prompt += f"\n\n**★★★ 연도 결정 필수 정보 ★★★**"
+                prompt += f"\n- 공지 등록일: {notice_date} (등록 연도: {reg_year}년, 등록 월: {reg_month}월)"
+                prompt += f"\n- 문서에 '1월', '2월', '3월' 등 1~3월이 나오고, 등록일이 10~12월이면:"
+                prompt += f"\n  → dates는 반드시 **{reg_year + 1}년** 으로 설정!"
+                prompt += f"\n  예) 등록일 {reg_year}-12-29, 휴무일 '2월 1일' → dates = ['**{reg_year + 1}-02-01**']"
+                prompt += f"\n- 등록일({notice_date})보다 과거 날짜는 절대 불가!"
+            else:
+                prompt += f"\n힌트: 이 공지는 '{notice_date}'에 등록되었습니다."
 
         if facility_name:
             prompt += f"\n힌트: 시설명은 '{facility_name}'입니다."
@@ -228,7 +243,8 @@ class LLMParser:
         # 2. 휴무일 파싱
         closures = self.parse_closures(
             raw_text=raw_text,
-            facility_name=facility_name or parsed_data.facility_name
+            facility_name=facility_name or parsed_data.facility_name,
+            notice_date=notice_date
         )
 
         # 3. 결과 병합
