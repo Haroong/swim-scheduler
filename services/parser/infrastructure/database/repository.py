@@ -201,7 +201,20 @@ class SwimRepository:
 
     def _save_closures(self, cursor, facility_id: int, notice_id: int,
                        valid_month: str, closures: List[dict]):
-        """휴무일 일괄 저장"""
+        """
+        휴무일 일괄 저장 (중복 방지 및 연도 검증 포함)
+
+        - specific_date: valid_month와 연도가 일치하는 날짜만 저장, 중복 방지
+        - regular/holiday: 동일 패턴 중복 방지
+        """
+        # valid_month에서 연도 추출 (예: "2026-02" -> 2026)
+        valid_year = None
+        if valid_month and len(valid_month) >= 4:
+            try:
+                valid_year = int(valid_month[:4])
+            except ValueError:
+                logger.warning(f"valid_month 연도 파싱 실패: {valid_month}")
+
         for closure in closures:
             closure_type = closure.get("closure_type")
             day_of_week = closure.get("day_of_week")
@@ -212,6 +225,31 @@ class SwimRepository:
             if closure_type == "specific_date" and dates:
                 # 특정 날짜 휴무: 각 날짜별로 레코드 생성
                 for date_str in dates:
+                    # 연도 검증: closure_date의 연도가 valid_month와 일치해야 함
+                    if valid_year and date_str:
+                        try:
+                            date_year = int(date_str[:4])
+                            if date_year != valid_year:
+                                logger.warning(
+                                    f"연도 불일치로 건너뜀: valid_month={valid_month}, "
+                                    f"closure_date={date_str}, facility_id={facility_id}"
+                                )
+                                continue
+                        except (ValueError, IndexError):
+                            logger.warning(f"closure_date 파싱 실패: {date_str}")
+                            continue
+
+                    # 중복 체크: 같은 facility_id, valid_month, closure_date가 이미 있는지
+                    cursor.execute(
+                        """SELECT id FROM facility_closure
+                           WHERE facility_id = %s AND valid_month = %s
+                           AND closure_type = 'specific_date' AND closure_date = %s""",
+                        (facility_id, valid_month, date_str)
+                    )
+                    if cursor.fetchone():
+                        logger.debug(f"중복 specific_date 건너뜀: {date_str}, facility_id={facility_id}")
+                        continue
+
                     cursor.execute(
                         """INSERT INTO facility_closure
                            (facility_id, notice_id, valid_month, closure_type, closure_date, reason)
@@ -220,6 +258,32 @@ class SwimRepository:
                     )
             else:
                 # 정기휴무(regular) 또는 공휴일(holiday)
+                # 중복 체크: 같은 facility_id, valid_month, closure_type, day_of_week, week_pattern
+                if closure_type == "regular":
+                    cursor.execute(
+                        """SELECT id FROM facility_closure
+                           WHERE facility_id = %s AND valid_month = %s
+                           AND closure_type = 'regular'
+                           AND (day_of_week = %s OR (day_of_week IS NULL AND %s IS NULL))
+                           AND (week_pattern = %s OR (week_pattern IS NULL AND %s IS NULL))""",
+                        (facility_id, valid_month, day_of_week, day_of_week, week_pattern, week_pattern)
+                    )
+                    if cursor.fetchone():
+                        logger.debug(
+                            f"중복 regular 건너뜀: {day_of_week} (week={week_pattern}), facility_id={facility_id}"
+                        )
+                        continue
+                elif closure_type == "holiday":
+                    cursor.execute(
+                        """SELECT id FROM facility_closure
+                           WHERE facility_id = %s AND valid_month = %s
+                           AND closure_type = 'holiday'""",
+                        (facility_id, valid_month)
+                    )
+                    if cursor.fetchone():
+                        logger.debug(f"중복 holiday 건너뜀: facility_id={facility_id}")
+                        continue
+
                 cursor.execute(
                     """INSERT INTO facility_closure
                        (facility_id, notice_id, valid_month, closure_type, day_of_week, week_pattern, reason)

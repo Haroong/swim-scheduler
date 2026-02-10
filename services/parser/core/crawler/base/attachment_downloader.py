@@ -9,6 +9,7 @@ import logging
 import re
 from urllib.parse import unquote
 
+import requests
 from infrastructure.utils.http_utils import create_session
 
 logging.basicConfig(level=logging.INFO)
