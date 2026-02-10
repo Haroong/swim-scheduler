@@ -82,7 +82,7 @@ class AttachmentDownloader:
             file_path = self.download_dir / filename
             file_path.write_bytes(response.content)
 
-            logger.info(f"✓ 다운로드 완료: {file_path} ({len(response.content)} bytes)")
+            logger.info(f"[OK] 다운로드 완료: {file_path} ({len(response.content)} bytes)")
             return file_path
 
         except requests.RequestException as e:

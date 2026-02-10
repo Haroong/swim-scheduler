@@ -111,7 +111,7 @@ class ParsingService:
 
                 if normalized_name != original_name:
                     logger.info(
-                        f"시설명 정규화: '{original_name}' → '{normalized_name}' "
+                        f"시설명 정규화: '{original_name}' -> '{normalized_name}' "
                         f"(confidence: {confidence:.2f}, type: {match_type})"
                     )
                     result["facility_name"] = normalized_name

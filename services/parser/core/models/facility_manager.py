@@ -44,19 +44,19 @@ class FacilityNameMatcher:
         # Stage 1: 수동 매핑 확인 (우선순위 최상)
         if llm_extracted_name in cls.MANUAL_MAPPING:
             normalized = cls.MANUAL_MAPPING[llm_extracted_name]
-            logger.info(f"Manual mapping: '{llm_extracted_name}' → '{normalized}'")
+            logger.info(f"Manual mapping: '{llm_extracted_name}' -> '{normalized}'")
             return normalized, 1.0, "manual"
 
         # Stage 2: Exact match (대소문자 구분 없음)
         for facility in Facility:
             if facility.value.name.lower() == llm_extracted_name.lower():
-                logger.info(f"Exact match: '{llm_extracted_name}' → '{facility.value.name}'")
+                logger.info(f"Exact match: '{llm_extracted_name}' -> '{facility.value.name}'")
                 return facility.value.name, 1.0, "exact"
 
             # Aliases 확인
             for alias in facility.value.aliases:
                 if alias.lower() == llm_extracted_name.lower():
-                    logger.info(f"Alias match: '{llm_extracted_name}' → '{facility.value.name}' (via alias '{alias}')")
+                    logger.info(f"Alias match: '{llm_extracted_name}' -> '{facility.value.name}' (via alias '{alias}')")
                     return facility.value.name, 1.0, "exact"
 
         # Stage 3: Fuzzy matching
@@ -80,7 +80,7 @@ class FacilityNameMatcher:
         # 매칭 결과에 따른 처리
         if best_score >= cls.THRESHOLD_HIGH:
             # High confidence: 자동 교정
-            logger.info(f"Fuzzy match (HIGH): '{llm_extracted_name}' → '{best_match}' (score: {best_score:.2f})")
+            logger.info(f"Fuzzy match (HIGH): '{llm_extracted_name}' -> '{best_match}' (score: {best_score:.2f})")
             return best_match, best_score, "fuzzy"
 
         elif best_score >= cls.THRESHOLD_MEDIUM:

@@ -162,11 +162,11 @@ if __name__ == "__main__":
         if file_a or file_b:
             print(f"\n{idx}. [{item.get('enter_dt', '')}] {item.get('sbjt', '')}")
             print(f"   시설: {item.get('com_nm', '')}")
-            print(f"   첨부: 있음 → PostDetail로 변환 중...")
+            print(f"   첨부: 있음 -> PostDetail로 변환 중...")
 
             detail = DetailCrawler.from_list_item(item)
             if detail:
-                print(f"   ✓ 변환 완료")
+                print(f"   [OK] 변환 완료")
                 print(f"     HWP: {detail.file_hwp or '없음'}")
                 print(f"     PDF: {detail.file_pdf or '없음'}")
                 print(f"     본문 길이: {len(detail.content_text)} 자")
@@ -174,7 +174,7 @@ if __name__ == "__main__":
                 preview = detail.content_text[:200].replace('\n', ' ')
                 print(f"       {preview}...")
             else:
-                print(f"   ✗ 변환 실패")
+                print(f"   [FAIL] 변환 실패")
 
     print("\n" + "="*60)
     print("to_dict 메서드 테스트")
