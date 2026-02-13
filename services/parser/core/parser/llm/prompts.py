@@ -12,9 +12,10 @@ CLOSURE_EXTRACTION_PROMPT = """당신은 수영장 공지사항에서 휴무일 
 
 아래 텍스트에서 시설의 휴무일/휴관일 정보만 추출하여 JSON 형식으로 반환해주세요.
 
-**중요: 이 프롬프트의 책임은 오직 휴무일 정보 추출입니다.**
+**중요: 이 프롬프트의 책임은 오직 수영장 휴무일 정보 추출입니다.**
 - 자유수영, 강습, 요금, 시간표 등 운영 정보는 모두 무시하세요.
 - 오직 "휴무", "휴관", "휴장", "운영 중단" 관련 정보만 추출합니다.
+- **수영장/수영 관련 휴무만 추출하세요!** 같은 시설 내 다른 종목(암벽장, 빙상장, 볼링장, 헬스장 등)의 휴장 정보는 무시하세요.
 
 **★★★ 최우선 규칙: 날짜(dates)의 연도 결정 ★★★**
 공지 등록일(notice_date)을 기준으로 휴무일 날짜의 연도를 결정합니다:
@@ -47,6 +48,12 @@ closures 배열의 각 요소는 다음 세 가지 타입 중 하나입니다:
    - dates: YYYY-MM-DD 형식의 날짜 배열
    - reason: 휴무 사유
 
+4. monthly (월 전체 휴장):
+   - closure_type: "monthly"
+   - reason: 휴장 사유 (예: "시설 보수", "임시휴장", "동절기 휴장")
+   - 시설이 해당 월 전체(또는 대부분) 임시 휴장/휴관하는 경우 사용
+   - 개별 휴무일이 아닌, 월 전체가 운영되지 않는 경우에만 사용
+
 휴무일 해석 규칙:
 - "매주 X요일 휴장/휴관" → regular, week_pattern은 null
 - "매월 N주 X요일 휴관" → regular, week_pattern에 해당 주차 (예: "2,4")
@@ -54,6 +61,7 @@ closures 배열의 각 요소는 다음 세 가지 타입 중 하나입니다:
 - "공휴일 휴관" → holiday
 - "N월 N일 휴관" → specific_date, dates에 YYYY-MM-DD 형식으로
 - "N월 N일~N일 휴관" → specific_date, 해당 기간의 모든 날짜를 dates 배열에 포함
+- "N월 전체 휴장/휴관", "N월 중 임시휴장" (월 전체 운영 중단) → monthly
 - 휴무일 정보가 전혀 없으면 closures는 빈 배열 []로 반환
 
 **절대 금지 사항:**
@@ -68,7 +76,8 @@ closures 배열의 각 요소는 다음 세 가지 타입 중 하나입니다:
     {"closure_type": "regular", "day_of_week": "월요일", "week_pattern": null, "reason": "정기휴무"},
     {"closure_type": "regular", "day_of_week": "일요일", "week_pattern": "2,4", "reason": "정기휴장"},
     {"closure_type": "holiday", "reason": "공휴일 휴관"},
-    {"closure_type": "specific_date", "dates": ["2026-02-16", "2026-02-17", "2026-02-18"], "reason": "설날 연휴"}
+    {"closure_type": "specific_date", "dates": ["2026-02-16", "2026-02-17", "2026-02-18"], "reason": "설날 연휴"},
+    {"closure_type": "monthly", "reason": "시설 보수 임시휴장"}
   ]
 }
 

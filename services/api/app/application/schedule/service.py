@@ -169,8 +169,19 @@ class ScheduleService:
                         specific_dates = [c for c in closures if c.closure_type == 'specific_date']
                         regular_closures = [c for c in closures if c.closure_type == 'regular']
 
-                        # 임시휴장 판단: 특정 날짜 휴무가 15일 이상이면 월 전체 휴장으로 간주
-                        if len(specific_dates) >= 15:
+                        # 전체 휴장 판단:
+                        # 1) closure_date가 NULL인 specific_date 레코드 = 월 전체 휴장
+                        # 2) specific_date가 15일 이상이면 월 전체 휴장으로 간주
+                        full_closure = next(
+                            (c for c in specific_dates if c.closure_date is None), None
+                        )
+                        if full_closure:
+                            closure_info = {
+                                "is_closed": True,
+                                "closure_type": "monthly",
+                                "reason": full_closure.reason or "임시휴장"
+                            }
+                        elif len(specific_dates) >= 15:
                             reason = specific_dates[0].reason if specific_dates else "임시휴장"
                             closure_info = {
                                 "is_closed": True,

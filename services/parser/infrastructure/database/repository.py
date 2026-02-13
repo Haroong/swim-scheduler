@@ -72,16 +72,29 @@ class SwimRepository:
             # 3. schedule + session 저장
             schedules = data.get("schedules", [])
             notes = data.get("notes", [])
+            closures = data.get("closures", [])
 
-            # 수영장 미운영 체크 (schedules가 비어있고 notes에 미운영 관련 내용이 있는 경우)
-            is_pool_closed = (
+            # 수영장 미운영 체크
+            # 조건 1: schedules가 비어있고 notes에 미운영 관련 내용이 있는 경우
+            # 조건 2: closures에 monthly 타입이 있는 경우 (월 전체 휴장)
+            has_monthly_closure = any(
+                c.get("closure_type") == "monthly" for c in closures
+            )
+            is_pool_closed = has_monthly_closure or (
                 len(schedules) == 0 and
                 any("미운영" in note or "휴장" in note or "휴관" in note for note in notes)
             )
 
             if is_pool_closed:
                 # 수영장 휴장 시 특별 closure 레코드 생성
-                self._save_pool_closure(cursor, facility_id, notice_id, valid_date, notes)
+                if has_monthly_closure:
+                    monthly_reason = next(
+                        (c.get("reason", "임시휴장") for c in closures if c.get("closure_type") == "monthly"),
+                        "임시휴장"
+                    )
+                    self._save_pool_closure(cursor, facility_id, notice_id, valid_date, [monthly_reason])
+                else:
+                    self._save_pool_closure(cursor, facility_id, notice_id, valid_date, notes)
                 logger.info(f"수영장 휴장 저장: {facility_name} ({valid_date})")
             else:
                 for schedule in schedules:
@@ -93,8 +106,7 @@ class SwimRepository:
             fees = data.get("fees", [])
             self._save_fees(cursor, facility_id, fees)
 
-            # 5. closure 저장
-            closures = data.get("closures", [])
+            # 5. closure 저장 (monthly 타입은 이미 _save_pool_closure에서 처리됨)
             self._save_closures(cursor, facility_id, notice_id, valid_date, closures)
 
             self._commit()
@@ -236,6 +248,9 @@ class SwimRepository:
         """휴무일 일괄 저장"""
         for closure in closures:
             closure_type = closure.get("closure_type")
+            # monthly 타입은 _save_pool_closure()에서 이미 처리됨
+            if closure_type == "monthly":
+                continue
             day_of_week = closure.get("day_of_week")
             week_pattern = closure.get("week_pattern")
             reason = closure.get("reason", "")

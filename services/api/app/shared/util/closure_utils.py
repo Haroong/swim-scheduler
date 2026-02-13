@@ -114,6 +114,11 @@ def check_facility_closure(
     closures = get_closures(db, facility_id, valid_month)
     check_date = target_date.date() if isinstance(target_date, datetime) else target_date
 
+    # 월 전체 휴장 체크 (closure_date가 NULL인 specific_date 레코드)
+    for closure in closures:
+        if closure.closure_type == "specific_date" and closure.closure_date is None:
+            return True, closure.reason or "임시휴장"
+
     # 공휴일은 기본적으로 휴무 처리
     if check_date in kr_holidays:
         holiday_name = kr_holidays.get(check_date)
