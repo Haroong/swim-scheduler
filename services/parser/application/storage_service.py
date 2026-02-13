@@ -177,7 +177,28 @@ class StorageService:
             data = json.load(f)
             return data.get("parsed_schedules", [])
 
-    # TODO: DB 저장 기능은 Repository 리팩토링 후 추가
-    # def save_to_database(self, data: ScheduleStorageDTO) -> bool:
-    #     """DB에 저장 (트랜잭션 관리)"""
-    #     pass
+    def save_validated_parsed_data(self, validated_results: List[Dict]):
+        """
+        검증된 파싱 결과 저장
+
+        Args:
+            validated_results: 검증된 결과 리스트
+        """
+        filepath = self.storage_dir / "validated_parsed_data.json"
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(validated_results, f, ensure_ascii=False, indent=2)
+        logger.info(f"검증된 데이터 저장: {filepath}")
+
+    def load_validated_parsed_data(self) -> List[Dict]:
+        """
+        검증된 파싱 결과 로드
+
+        Returns:
+            검증된 결과 리스트
+        """
+        filepath = self.storage_dir / "validated_parsed_data.json"
+        if not filepath.exists():
+            logger.warning(f"검증된 데이터 파일 없음: {filepath}")
+            return []
+        with open(filepath, "r", encoding="utf-8") as f:
+            return json.load(f)

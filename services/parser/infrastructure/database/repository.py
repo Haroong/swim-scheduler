@@ -19,6 +19,12 @@ class SwimRepository:
     def __init__(self):
         self.conn = None
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
     def _get_conn(self):
         """연결 획득"""
         if self.conn is None or not self.conn.open:

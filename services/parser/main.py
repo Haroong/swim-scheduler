@@ -10,11 +10,12 @@
     python main.py --save       # DB 저장만 실행
 """
 import argparse
-import json
 
 from infrastructure.config import settings
 from infrastructure.config.logging_config import get_logger
 from application.swim_crawler_service import SwimCrawlerService
+from application.storage_service import StorageService
+from application.fallback_service import FallbackService
 from infrastructure.database.repository import SwimRepository
 from core.parser.validators.date_validator import validate_valid_month
 from core.models.facility import Organization
@@ -127,10 +128,7 @@ def _save_validated_results(validated_results: list) -> None:
         validated_results: 검증된 결과 리스트
     """
     if validated_results:
-        validated_path = STORAGE_DIR / "validated_parsed_data.json"
-        with open(validated_path, "w", encoding="utf-8") as f:
-            json.dump(validated_results, f, ensure_ascii=False, indent=2)
-        logger.info(f"검증된 데이터 저장: {validated_path}")
+        StorageService(STORAGE_DIR).save_validated_parsed_data(validated_results)
 
 
 def crawl(keyword: str = "수영", max_pages: int = 3):
@@ -194,25 +192,24 @@ def save_to_db(validated_results=None):
 
     # 데이터 로드
     if validated_results is None:
-        validated_path = STORAGE_DIR / "validated_parsed_data.json"
-        if not validated_path.exists():
-            logger.error(f"검증된 데이터 파일 없음: {validated_path}")
+        validated_results = StorageService(STORAGE_DIR).load_validated_parsed_data()
+        if not validated_results:
             return
 
-        with open(validated_path, "r", encoding="utf-8") as f:
-            validated_results = json.load(f)
-
     # DB 저장
-    repo = SwimRepository()
-    success_count = 0
-
-    for data in validated_results:
-        if repo.save_parsed_data(data):
-            success_count += 1
-
-    repo.close()
+    with SwimRepository() as repo:
+        success_count = 0
+        for data in validated_results:
+            if repo.save_parsed_data(data):
+                success_count += 1
     logger.info(f"DB 저장 완료: {success_count}/{len(validated_results)}개")
     logger.info("=== DB 저장 완료 ===")
+
+
+def save_base_schedule_fallbacks(validated_results=None):
+    """4단계: 공지 없는 시설에 base_schedules 폴백 저장"""
+    service = FallbackService(STORAGE_DIR)
+    service.generate_and_save(validated_results)
 
 
 def main():
@@ -237,6 +234,7 @@ def main():
 
     if args.save:
         save_to_db()
+        save_base_schedule_fallbacks()
         return
 
     # 전체 파이프라인 실행
@@ -245,6 +243,7 @@ def main():
     monthly_notices = crawl(keyword=args.keyword, max_pages=args.max_pages)
     validated_results = parse(monthly_notices=monthly_notices)
     save_to_db(validated_results=validated_results)
+    save_base_schedule_fallbacks(validated_results=validated_results)
 
     logger.info("=== 전체 파이프라인 완료 ===")
 
