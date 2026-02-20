@@ -2,7 +2,6 @@
 공지 없는 시설에 base_schedule 폴백 데이터를 생성·저장하는 서비스
 """
 import re
-from collections import Counter
 from pathlib import Path
 
 from infrastructure.config.logging_config import get_logger
@@ -26,23 +25,26 @@ class FallbackService:
         if validated_results is None:
             validated_results = self.storage.load_validated_parsed_data()
 
-        # 1. 대상 월 결정
-        target_month = self._get_target_month(validated_results)
-        if not target_month:
+        # 1. 대상 월 목록 결정
+        target_months = self._get_target_months(validated_results)
+        if not target_months:
             logger.warning("대상 월을 결정할 수 없음. 폴백 저장 건너뜀.")
             return
 
-        logger.info(f"대상 월: {target_month}")
+        logger.info(f"대상 월: {target_months}")
 
-        # 2. 이미 커버된 시설 목록
-        covered = self._get_covered_facilities(validated_results, target_month)
-        logger.info(f"이미 커버된 시설: {covered}")
+        # 2. base_schedules 로드
+        base_facilities = []
+        for org in Organization:
+            base_facilities.extend(self.storage.load_base_schedules(org))
 
-        # 3. base_schedules 로드 및 폴백 데이터 생성
+        # 3. 월별 폴백 데이터 생성
         fallback_data = []
 
-        for org in Organization:
-            base_facilities = self.storage.load_base_schedules(org)
+        for target_month in target_months:
+            covered = self._get_covered_facilities(validated_results, target_month)
+            logger.info(f"[{target_month}] 이미 커버된 시설: {covered}")
+
             for facility in base_facilities:
                 fname = facility.get("facility_name", "")
                 if fname in covered:
@@ -59,7 +61,7 @@ class FallbackService:
 
                 parsed = self._convert_base_to_parsed(facility, target_month)
                 fallback_data.append(parsed)
-                logger.info(f"폴백 생성: {fname}")
+                logger.info(f"폴백 생성: {fname} ({target_month})")
 
         if not fallback_data:
             logger.info("폴백 대상 시설 없음")
@@ -76,12 +78,13 @@ class FallbackService:
         logger.info("=== 4단계 완료 ===")
 
     @staticmethod
-    def _get_target_month(validated_results: list) -> str | None:
-        """validated_results에서 가장 많이 등장하는 valid_month 반환"""
-        months = [r.get("valid_month", "") for r in validated_results if r.get("valid_month")]
-        if not months:
-            return None
-        return Counter(months).most_common(1)[0][0]
+    def _get_target_months(validated_results: list) -> list[str]:
+        """validated_results에서 모든 고유 valid_month 목록 반환"""
+        return list({
+            r.get("valid_month")
+            for r in validated_results
+            if r.get("valid_month")
+        })
 
     @staticmethod
     def _get_covered_facilities(validated_results: list, target_month: str) -> set:
@@ -89,7 +92,7 @@ class FallbackService:
         return {
             r.get("facility_name")
             for r in validated_results
-            if r.get("valid_month") == target_month
+            if r.get("valid_month") == target_month and r.get("schedules")
         }
 
     @staticmethod

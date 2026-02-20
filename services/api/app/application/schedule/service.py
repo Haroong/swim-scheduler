@@ -443,8 +443,7 @@ class ScheduleService:
                     # 스케줄이 있으면 휴장 시설이 아님
                     continue
 
-                # 스케줄이 없는 시설은 휴장으로 처리
-                # 휴장 사유 조회 (있으면 사용)
+                # 명시적 휴장 레코드가 있는 경우에만 휴장으로 처리
                 closure_stmt = (
                     select(FacilityClosure)
                     .where(
@@ -454,6 +453,9 @@ class ScheduleService:
                     .limit(1)
                 )
                 closure = db.execute(closure_stmt).scalar_one_or_none()
+
+                if not closure:
+                    continue
 
                 # 시설 정보 조회
                 facility = notice.facility
@@ -471,7 +473,7 @@ class ScheduleService:
                     "source_url": notice.source_url,
                     "notice_title": notice.title,
                     "is_closed": True,
-                    "closure_reason": closure.reason if closure else "수영장 정기휴장"
+                    "closure_reason": closure.reason
                 })
 
             return closed_facilities
