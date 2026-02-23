@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { trackFavoriteToggle } from '../../utils/analytics';
 import { DateTab } from './DateTab';
 import { MonthlyTab } from './MonthlyTab';
+import { ReviewSection } from '../review/ReviewSection';
 import type { Fee, Session } from '../../types/schedule';
 
 interface FacilityDetailProps {
@@ -219,6 +220,11 @@ export function FacilityDetail({
 
       {/* DateTab (메인 콘텐츠) */}
       <DateTab facilityId={facilityId} facilityName={facilityName} crawledAt={crawledAt} />
+
+      {/* 리뷰 섹션 */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4">
+        <ReviewSection facilityId={facilityId} facilityName={facilityName} />
+      </div>
 
       {/* 월간 전체 일정 (확장 영역) */}
       <div className="border border-slate-200 rounded-xl overflow-hidden">
