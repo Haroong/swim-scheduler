@@ -56,7 +56,6 @@ export function FacilityDetail({
   facilityId,
   facilityName,
   address,
-  websiteUrl,
   isFavorite,
   onToggleFavorite,
   onBack,
@@ -68,9 +67,10 @@ export function FacilityDetail({
 }: FacilityDetailProps) {
   const [showMonthly, setShowMonthly] = useState(false);
 
-  const handleWebsiteClick = () => {
-    if (websiteUrl) {
-      window.open(websiteUrl, '_blank', 'noopener,noreferrer');
+  const handleDirections = () => {
+    if (address) {
+      const url = `https://map.naver.com/v5/search/${encodeURIComponent(facilityName + ' ' + address)}`;
+      window.open(url, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -123,16 +123,17 @@ export function FacilityDetail({
           )}
         </div>
 
-        {/* 공식 웹사이트 버튼 (텍스트화) */}
-        {websiteUrl && (
+        {/* 길찾기 버튼 */}
+        {address && (
           <button
-            onClick={handleWebsiteClick}
+            onClick={handleDirections}
             className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-ocean-600 hover:bg-ocean-50 transition-colors border border-ocean-200"
           >
-            공식 사이트
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
+            길찾기
           </button>
         )}
 
@@ -249,15 +250,19 @@ export function FacilityDetail({
       </div>
 
       {/* 모바일 하단 Sticky CTA */}
-      {websiteUrl && (
+      {address && (
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-200 sm:hidden z-40" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
           <a
-            href={websiteUrl}
+            href={`https://map.naver.com/v5/search/${encodeURIComponent(facilityName + ' ' + address)}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="block w-full py-3 bg-ocean-500 hover:bg-ocean-600 text-white text-center rounded-xl font-semibold text-sm transition-colors"
+            className="flex items-center justify-center gap-2 w-full py-3 bg-ocean-500 hover:bg-ocean-600 text-white rounded-xl font-semibold text-sm transition-colors"
           >
-            공식 사이트에서 예약하기 →
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            길찾기
           </a>
         </div>
       )}
