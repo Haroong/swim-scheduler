@@ -4,6 +4,7 @@ from .schedule import SwimSchedule, SwimSession, ScheduleRepository, SessionRepo
 from .notice import Notice, NoticeRepository
 from .fee import Fee, FeeRepository
 from .closure import FacilityClosure, ClosureRepository
+from .review import Review, ReviewRepository
 
 __all__ = [
     "Base",
@@ -11,5 +12,6 @@ __all__ = [
     "SwimSchedule", "SwimSession", "ScheduleRepository", "SessionRepository",
     "Notice", "NoticeRepository",
     "Fee", "FeeRepository",
-    "FacilityClosure", "ClosureRepository"
+    "FacilityClosure", "ClosureRepository",
+    "Review", "ReviewRepository"
 ]

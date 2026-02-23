@@ -23,6 +23,7 @@ class Facility(Base):
     fees = relationship("Fee", back_populates="facility", lazy="selectin")
     notices = relationship("Notice", back_populates="facility", lazy="selectin")
     closures = relationship("FacilityClosure", back_populates="facility", lazy="selectin")
+    reviews = relationship("Review", back_populates="facility", lazy="selectin")
 
     def __repr__(self):
         return f"<Facility(id={self.id}, name='{self.name}')>"

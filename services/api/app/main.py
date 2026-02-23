@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.shared.logging.logging_config import setup_logging, get_logger
 
 from app.presentation.schedule.controller import router as schedule_router
+from app.presentation.review.controller import router as review_router
 from app.domain.base import Base
 from app.infrastructure.persistence.database import engine
 from app.infrastructure.cache.redis import init_cache, close_cache
@@ -29,6 +30,7 @@ async def lifespan(app: FastAPI):
     from app.domain.notice.model import Notice
     from app.domain.fee.model import Fee
     from app.domain.closure.model import FacilityClosure
+    from app.domain.review.model import Review
 
     Base.metadata.create_all(bind=engine)
 
@@ -63,6 +65,7 @@ app.add_middleware(
 
 # 라우터 등록
 app.include_router(schedule_router, prefix="/api", tags=["schedules"])
+app.include_router(review_router, prefix="/api", tags=["reviews"])
 
 
 @app.get("/")
