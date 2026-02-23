@@ -202,10 +202,11 @@ function HorizontalDatePicker({
 interface DateTabProps {
   facilityId: number;
   facilityName: string;
+  crawledAt?: string | null;
 }
 
 // ===== 메인 컴포넌트: DateTab =====
-export function DateTab({ facilityId, facilityName }: DateTabProps) {
+export function DateTab({ facilityId, facilityName, crawledAt }: DateTabProps) {
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     return new Date().toISOString().split('T')[0];
   });
@@ -355,18 +356,40 @@ export function DateTab({ facilityId, facilityName }: DateTabProps) {
         </div>
       )}
 
-      {/* 원본 공지 링크 */}
-      {schedule?.source_url && (
-        <button
-          onClick={() => openSourceUrl(schedule.source_url!)}
-          className="w-full flex items-center justify-center gap-2 py-3 text-sm text-slate-500 hover:text-ocean-600 hover:bg-slate-50 rounded-xl border border-slate-200 transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+      {/* 출처/업데이트 시간 + 원본 공지 링크 */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1 text-xs text-slate-400">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          원본 공지 보기
-        </button>
-      )}
+          <span>
+            성남시 공지 기반
+            {crawledAt && (() => {
+              try {
+                const date = new Date(crawledAt);
+                const month = date.getMonth() + 1;
+                const day = date.getDate();
+                const hours = date.getHours();
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                return ` · ${month}/${day} ${hours}:${minutes} 업데이트`;
+              } catch {
+                return '';
+              }
+            })()}
+          </span>
+        </div>
+        {schedule?.source_url && (
+          <button
+            onClick={() => openSourceUrl(schedule.source_url!)}
+            className="flex items-center gap-1 text-xs text-slate-400 hover:text-ocean-500 transition-colors"
+          >
+            원본 공지
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </button>
+        )}
+      </div>
     </div>
   );
 }

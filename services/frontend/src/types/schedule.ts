@@ -63,6 +63,8 @@ export interface DailySchedule {
   notes?: string;
   is_closed: boolean;
   closure_reason?: string | null;
+  fees?: Fee[];
+  crawled_at?: string | null;
 }
 
 export interface CalendarData {

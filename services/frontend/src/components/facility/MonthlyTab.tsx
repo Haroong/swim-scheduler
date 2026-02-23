@@ -124,7 +124,7 @@ export function MonthlyTab({ facilityName }: MonthlyTabProps) {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showFees, setShowFees] = useState(false);
+  const [showFees, setShowFees] = useState(true);
   const [showNotes, setShowNotes] = useState(false);
 
   useEffect(() => {

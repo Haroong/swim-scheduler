@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { trackFavoriteToggle } from '../../utils/analytics';
 import { DateTab } from './DateTab';
 import { MonthlyTab } from './MonthlyTab';
+import type { Fee, Session } from '../../types/schedule';
 
 interface FacilityDetailProps {
   facilityId: number;
@@ -11,9 +12,45 @@ interface FacilityDetailProps {
   isFavorite: boolean;
   onToggleFavorite: () => void;
   onBack: () => void;
+  fees?: Fee[];
+  sessions?: Session[];
+  crawledAt?: string | null;
+  isClosed?: boolean;
+  closureReason?: string | null;
 }
 
-type TabType = 'date' | 'monthly';
+function getStatusInfo(sessions: Session[], isClosed?: boolean, closureReason?: string | null) {
+  if (isClosed) {
+    return { status: 'closed' as const, label: closureReason || '휴관', badgeClass: 'bg-slate-100 text-slate-400', dotClass: 'bg-slate-300' };
+  }
+  if (!sessions || sessions.length === 0) {
+    return { status: 'closed' as const, label: '세션 없음', badgeClass: 'bg-slate-100 text-slate-400', dotClass: 'bg-slate-300' };
+  }
+
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const currentSession = sessions.find((s) => {
+    const [startH, startM] = s.start_time.split(':').map(Number);
+    const [endH, endM] = s.end_time.split(':').map(Number);
+    return currentMinutes >= startH * 60 + startM && currentMinutes < endH * 60 + endM;
+  });
+
+  if (currentSession) {
+    return { status: 'available' as const, label: '이용 가능', badgeClass: 'bg-emerald-100 text-emerald-700', dotClass: 'bg-emerald-500', session: currentSession };
+  }
+
+  const nextSession = sessions.find((s) => {
+    const [startH, startM] = s.start_time.split(':').map(Number);
+    return currentMinutes < startH * 60 + startM;
+  });
+
+  if (nextSession) {
+    return { status: 'upcoming' as const, label: `${nextSession.start_time.substring(0, 5)}~`, badgeClass: 'bg-amber-100 text-amber-700', dotClass: 'bg-amber-500', session: nextSession };
+  }
+
+  return { status: 'ended' as const, label: '오늘 종료', badgeClass: 'bg-slate-100 text-slate-500', dotClass: 'bg-slate-400' };
+}
 
 export function FacilityDetail({
   facilityId,
@@ -23,8 +60,13 @@ export function FacilityDetail({
   isFavorite,
   onToggleFavorite,
   onBack,
+  fees,
+  sessions,
+  crawledAt,
+  isClosed,
+  closureReason,
 }: FacilityDetailProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('date');
+  const [showMonthly, setShowMonthly] = useState(false);
 
   const handleWebsiteClick = () => {
     if (websiteUrl) {
@@ -32,8 +74,28 @@ export function FacilityDetail({
     }
   };
 
+  const statusInfo = getStatusInfo(sessions || [], isClosed, closureReason);
+  const representativeFee = fees && fees.length > 0
+    ? (fees.find(f => f.category.includes('일반') || f.category.includes('성인')) || fees[0])
+    : null;
+  const maxLanes = sessions?.reduce((max, s) => Math.max(max, s.lanes || 0), 0) || 0;
+
+  const formatCrawledAt = (dateStr?: string | null) => {
+    if (!dateStr) return null;
+    try {
+      const date = new Date(dateStr);
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      const hours = date.getHours();
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${month}/${day} ${hours}:${minutes}`;
+    } catch {
+      return null;
+    }
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-20 sm:pb-4">
       {/* 헤더 */}
       <div className="flex items-center gap-2">
         <button
@@ -61,15 +123,15 @@ export function FacilityDetail({
           )}
         </div>
 
-        {/* 공식 웹사이트 버튼 */}
+        {/* 공식 웹사이트 버튼 (텍스트화) */}
         {websiteUrl && (
           <button
             onClick={handleWebsiteClick}
-            className="min-w-11 min-h-11 flex items-center justify-center rounded-lg text-slate-400 hover:text-ocean-500 hover:bg-ocean-50 transition-colors"
-            aria-label="공식 웹사이트"
+            className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-ocean-600 hover:bg-ocean-50 transition-colors border border-ocean-200"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            공식 사이트
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
           </button>
         )}
@@ -97,49 +159,107 @@ export function FacilityDetail({
         </button>
       </div>
 
-      {/* 탭 네비게이션 */}
-      <div className="flex bg-slate-100 rounded-xl p-1">
-        <button
-          onClick={() => setActiveTab('date')}
-          className={`
-            flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all
-            ${activeTab === 'date'
-              ? 'bg-white text-slate-800 shadow-sm'
-              : 'text-slate-500 hover:text-slate-700'
-            }
-          `}
-        >
-          <span className="flex items-center justify-center gap-1.5">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            날짜 선택
+      {/* 시설 요약 카드 */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4">
+        <div className="flex items-center gap-3 mb-3">
+          {/* 상태 배지 (큰) */}
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold ${statusInfo.badgeClass}`}>
+            <span className={`w-2 h-2 rounded-full ${statusInfo.dotClass}`} />
+            {statusInfo.label}
           </span>
-        </button>
-        <button
-          onClick={() => setActiveTab('monthly')}
-          className={`
-            flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all
-            ${activeTab === 'monthly'
-              ? 'bg-white text-slate-800 shadow-sm'
-              : 'text-slate-500 hover:text-slate-700'
-            }
-          `}
-        >
-          <span className="flex items-center justify-center gap-1.5">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            월간 정보
+          {statusInfo.status === 'available' && statusInfo.session && (
+            <span className="text-sm text-slate-500">
+              ~{statusInfo.session.end_time.substring(0, 5)}까지
+            </span>
+          )}
+        </div>
+
+        {/* 핵심 스펙 */}
+        {!isClosed && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600">
+            {sessions && sessions.length > 0 && (
+              <div className="flex items-center gap-1">
+                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>오늘 {sessions.length}개 세션</span>
+              </div>
+            )}
+            {maxLanes > 0 && (
+              <div className="flex items-center gap-1">
+                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+                <span>{maxLanes}레인</span>
+              </div>
+            )}
+            {representativeFee && (
+              <div className="flex items-center gap-1">
+                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{representativeFee.category} {representativeFee.price.toLocaleString()}원</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 출처 + crawled_at */}
+        <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-1 text-xs text-slate-400">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>
+            성남시 공지 기반
+            {formatCrawledAt(crawledAt) && ` · ${formatCrawledAt(crawledAt)} 업데이트`}
           </span>
-        </button>
+        </div>
       </div>
 
-      {/* 탭 컨텐츠 */}
-      {activeTab === 'date' ? (
-        <DateTab facilityId={facilityId} facilityName={facilityName} />
-      ) : (
-        <MonthlyTab facilityName={facilityName} />
+      {/* DateTab (메인 콘텐츠) */}
+      <DateTab facilityId={facilityId} facilityName={facilityName} crawledAt={crawledAt} />
+
+      {/* 월간 전체 일정 (확장 영역) */}
+      <div className="border border-slate-200 rounded-xl overflow-hidden">
+        <button
+          onClick={() => setShowMonthly(!showMonthly)}
+          className="w-full flex items-center justify-center gap-2 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
+        >
+          <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+          <span className="text-sm font-medium text-slate-600">
+            월간 전체 일정 {showMonthly ? '접기' : '보기'}
+          </span>
+          <svg
+            className={`w-4 h-4 text-slate-400 transition-transform ${showMonthly ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        {showMonthly && (
+          <div className="p-4 border-t border-slate-200">
+            <MonthlyTab facilityName={facilityName} />
+          </div>
+        )}
+      </div>
+
+      {/* 모바일 하단 Sticky CTA */}
+      {websiteUrl && (
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-200 sm:hidden z-40" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+          <a
+            href={websiteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block w-full py-3 bg-ocean-500 hover:bg-ocean-600 text-white text-center rounded-xl font-semibold text-sm transition-colors"
+          >
+            공식 사이트에서 예약하기 →
+          </a>
+        </div>
       )}
     </div>
   );

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.domain import Facility, SwimSchedule, SwimSession, Notice
 from app.domain.closure import FacilityClosure
+from app.domain.fee.model import Fee
 from app.shared.util import get_season_from_month, should_include_schedule, should_include_session, check_facility_closure
 
 logger = logging.getLogger(__name__)
@@ -332,6 +333,10 @@ class ScheduleService:
                         db, facility_id, date_obj, valid_month
                     )
 
+                    # Fee 조회
+                    fee_stmt = select(Fee).where(Fee.facility_id == facility_id)
+                    fees = db.execute(fee_stmt).scalars().all()
+
                     facilities_map[facility_id] = {
                         "facility_id": facility_id,
                         "facility_name": facility_name,
@@ -345,7 +350,12 @@ class ScheduleService:
                         "source_url": notice.source_url if notice else None,
                         "notice_title": notice.title if notice else None,
                         "is_closed": is_closed,
-                        "closure_reason": closure_reason
+                        "closure_reason": closure_reason,
+                        "fees": [
+                            {"category": f.category, "price": f.price, "note": f.note or ""}
+                            for f in fees
+                        ],
+                        "crawled_at": notice.crawled_at.isoformat() if notice and notice.crawled_at else None
                     }
 
                     # 휴무일이면 세션 추가 건너뛰기
@@ -460,6 +470,10 @@ class ScheduleService:
                 # 시설 정보 조회
                 facility = notice.facility
 
+                # Fee 조회
+                fee_stmt = select(Fee).where(Fee.facility_id == facility_id)
+                fees = db.execute(fee_stmt).scalars().all()
+
                 closed_facilities.append({
                     "facility_id": facility_id,
                     "facility_name": facility.name,
@@ -473,7 +487,12 @@ class ScheduleService:
                     "source_url": notice.source_url,
                     "notice_title": notice.title,
                     "is_closed": True,
-                    "closure_reason": closure.reason
+                    "closure_reason": closure.reason,
+                    "fees": [
+                        {"category": f.category, "price": f.price, "note": f.note or ""}
+                        for f in fees
+                    ],
+                    "crawled_at": notice.crawled_at.isoformat() if notice.crawled_at else None
                 })
 
             return closed_facilities
