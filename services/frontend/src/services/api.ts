@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { Facility, Schedule, CalendarData, DailySchedule } from '../types/schedule';
+import type { Review, ReviewStats, ReviewCreatePayload, ReviewUpdatePayload } from '../types/review';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 
@@ -44,6 +45,38 @@ export const scheduleApi = {
       params: { year, month },
     });
     return response.data;
+  },
+};
+
+export const reviewApi = {
+  getReviews: async (facilityId: number): Promise<Review[]> => {
+    const response = await api.get<Review[]>('/api/reviews', {
+      params: { facility_id: facilityId },
+    });
+    return response.data;
+  },
+
+  getReviewStats: async (facilityId: number): Promise<ReviewStats> => {
+    const response = await api.get<ReviewStats>('/api/reviews/stats', {
+      params: { facility_id: facilityId },
+    });
+    return response.data;
+  },
+
+  createReview: async (payload: ReviewCreatePayload): Promise<Review> => {
+    const response = await api.post<Review>('/api/reviews', payload);
+    return response.data;
+  },
+
+  updateReview: async (reviewId: number, payload: ReviewUpdatePayload): Promise<Review> => {
+    const response = await api.put<Review>(`/api/reviews/${reviewId}`, payload);
+    return response.data;
+  },
+
+  deleteReview: async (reviewId: number, password: string): Promise<void> => {
+    await api.delete(`/api/reviews/${reviewId}`, {
+      data: { password },
+    });
   },
 };
 
