@@ -81,20 +81,6 @@ export function FacilityDetail({
     : null;
   const maxLanes = sessions?.reduce((max, s) => Math.max(max, s.lanes || 0), 0) || 0;
 
-  const formatCrawledAt = (dateStr?: string | null) => {
-    if (!dateStr) return null;
-    try {
-      const date = new Date(dateStr);
-      const month = date.getMonth() + 1;
-      const day = date.getDate();
-      const hours = date.getHours();
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      return `${month}/${day} ${hours}:${minutes}`;
-    } catch {
-      return null;
-    }
-  };
-
   return (
     <div className="space-y-4 pb-20 sm:pb-4">
       {/* 헤더 */}
@@ -206,16 +192,6 @@ export function FacilityDetail({
           </div>
         )}
 
-        {/* 출처 + crawled_at */}
-        <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-1 text-xs text-slate-400">
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span>
-            성남시 공지 기반
-            {formatCrawledAt(crawledAt) && ` · ${formatCrawledAt(crawledAt)} 업데이트`}
-          </span>
-        </div>
       </div>
 
       {/* DateTab (메인 콘텐츠) */}
