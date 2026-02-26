@@ -6,7 +6,9 @@
 -- 1. facility (시설)
 CREATE TABLE IF NOT EXISTS facility (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL
+    name VARCHAR(100) NOT NULL,
+    address VARCHAR(200),
+    website_url VARCHAR(500)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 2. notice (공지사항)
@@ -26,7 +28,7 @@ CREATE TABLE IF NOT EXISTS swim_schedule (
     facility_id INT NOT NULL,
     notice_id INT,
     day_type ENUM('평일', '토요일', '일요일') NOT NULL,
-    season ENUM('하절기', '동절기'),
+    season ENUM('하절기', '동절기', '임시운영'),
     valid_month VARCHAR(7) NOT NULL,
     FOREIGN KEY (facility_id) REFERENCES facility(id) ON DELETE CASCADE,
     FOREIGN KEY (notice_id) REFERENCES notice(id) ON DELETE SET NULL
@@ -73,6 +75,19 @@ CREATE TABLE IF NOT EXISTS facility_closure (
     FOREIGN KEY (notice_id) REFERENCES notice(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 7. review (리뷰)
+CREATE TABLE IF NOT EXISTS review (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    facility_id INT NOT NULL,
+    nickname VARCHAR(50) NOT NULL,
+    password_hash VARCHAR(60) NOT NULL,
+    rating INT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL,
+    FOREIGN KEY (facility_id) REFERENCES facility(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- 인덱스 생성
 CREATE INDEX IF NOT EXISTS idx_schedule_facility ON swim_schedule(facility_id);
 CREATE INDEX IF NOT EXISTS idx_schedule_valid_month ON swim_schedule(valid_month);
@@ -81,3 +96,4 @@ CREATE INDEX IF NOT EXISTS idx_notice_facility ON notice(facility_id);
 CREATE INDEX IF NOT EXISTS idx_fee_facility ON fee(facility_id);
 CREATE INDEX IF NOT EXISTS idx_closure_facility_month ON facility_closure(facility_id, valid_month);
 CREATE INDEX IF NOT EXISTS idx_closure_date ON facility_closure(closure_date);
+CREATE INDEX IF NOT EXISTS idx_review_facility_created ON review(facility_id, created_at);
