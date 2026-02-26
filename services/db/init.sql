@@ -24,10 +24,12 @@ CREATE TABLE IF NOT EXISTS notice (
 CREATE TABLE IF NOT EXISTS swim_schedule (
     id INT AUTO_INCREMENT PRIMARY KEY,
     facility_id INT NOT NULL,
+    notice_id INT,
     day_type ENUM('평일', '토요일', '일요일') NOT NULL,
     season ENUM('하절기', '동절기'),
     valid_month VARCHAR(7) NOT NULL,
-    FOREIGN KEY (facility_id) REFERENCES facility(id) ON DELETE CASCADE
+    FOREIGN KEY (facility_id) REFERENCES facility(id) ON DELETE CASCADE,
+    FOREIGN KEY (notice_id) REFERENCES notice(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 4. swim_session (세션)
