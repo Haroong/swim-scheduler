@@ -17,6 +17,7 @@ from application.swim_crawler_service import SwimCrawlerService
 from application.storage_service import StorageService
 from application.fallback_service import FallbackService
 from infrastructure.database.repository import SwimRepository
+from infrastructure.notification import NotificationService
 from core.parser.validators.date_validator import validate_valid_month
 from core.models.facility import Organization
 
@@ -190,20 +191,60 @@ def save_to_db(validated_results=None):
     """3단계: DB 저장"""
     logger.info("=== 3단계: DB 저장 시작 ===")
 
+    result = {"new_saved": 0, "already_exists": 0, "closures": [], "saved_items": []}
+
     # 데이터 로드
     if validated_results is None:
         validated_results = StorageService(STORAGE_DIR).load_validated_parsed_data()
         if not validated_results:
-            return
+            return result
+
+    notifier = NotificationService()
 
     # DB 저장
     with SwimRepository() as repo:
-        success_count = 0
         for data in validated_results:
             if repo.save_parsed_data(data):
-                success_count += 1
-    logger.info(f"DB 저장 완료: {success_count}/{len(validated_results)}개")
+                result["new_saved"] += 1
+                result["saved_items"].append({
+                    "facility_name": data.get("facility_name", ""),
+                    "valid_month": data.get("valid_month", ""),
+                    "source_notice_title": data.get("source_notice_title", ""),
+                })
+                notifier.notify_new_schedule(data)
+
+                # 휴장 감지
+                closures = data.get("closures", [])
+                schedules = data.get("schedules", [])
+                notes = data.get("notes", [])
+
+                has_monthly_closure = any(
+                    c.get("closure_type") == "monthly" for c in closures
+                )
+                is_closed = has_monthly_closure or (
+                    len(schedules) == 0
+                    and any(kw in note for note in notes for kw in ("미운영", "휴장", "휴관"))
+                )
+
+                if is_closed:
+                    reason = next(
+                        (n for n in notes if any(kw in n for kw in ("미운영", "휴장", "휴관"))),
+                        "수영장 임시휴장",
+                    )
+                    closure_info = {
+                        "facility_name": data.get("facility_name", ""),
+                        "valid_month": data.get("valid_month", ""),
+                        "reason": reason,
+                        "source_url": data.get("source_url", ""),
+                    }
+                    result["closures"].append(closure_info)
+                    notifier.notify_pool_closure(**closure_info)
+            else:
+                result["already_exists"] += 1
+
+    logger.info(f"DB 저장 완료: {result['new_saved']}/{len(validated_results)}개")
     logger.info("=== DB 저장 완료 ===")
+    return result
 
 
 def save_base_schedule_fallbacks(validated_results=None):
@@ -218,10 +259,32 @@ def main():
     parser.add_argument("--crawl", action="store_true", help="크롤링만 실행")
     parser.add_argument("--parse", action="store_true", help="파싱만 실행")
     parser.add_argument("--save", action="store_true", help="DB 저장만 실행")
+    parser.add_argument("--test-discord", action="store_true", help="Discord 알림 테스트")
     parser.add_argument("--keyword", default="수영", help="검색 키워드 (기본: 수영)")
     parser.add_argument("--max-pages", type=int, default=3, help="최대 페이지 수 (기본: 3)")
 
     args = parser.parse_args()
+
+    if args.test_discord:
+        notifier = NotificationService()
+        notifier.notify_daily_summary(
+            total_notices=5, new_saved=2, already_exists=3,
+            parse_success=5, parse_total=5,
+            errors=[], closures=[], duration_seconds=30.0,
+            crawled_notices=[
+                {"facility_name": "중원유스센터", "title": "2026년 3월 자유수영 안내"},
+                {"facility_name": "판교유스센터", "title": "2026년 3월 수영장 운영 안내"},
+                {"facility_name": "황새울국민체육센터", "title": "3월 자유수영 프로그램 시간표"},
+                {"facility_name": "성남종합운동장", "title": "2026년 3월 수영장 운영시간 변경 안내"},
+                {"facility_name": "탄천종합운동장", "title": "3월 자유수영 일정표"},
+            ],
+            saved_items=[
+                {"facility_name": "중원유스센터", "valid_month": "2026년 3월", "source_notice_title": "2026년 3월 자유수영 안내"},
+                {"facility_name": "판교유스센터", "valid_month": "2026년 3월", "source_notice_title": "2026년 3월 수영장 운영 안내"},
+            ],
+        )
+        logger.info("Discord 테스트 메시지 전송 완료")
+        return
 
     # 특정 단계만 실행
     if args.crawl:
