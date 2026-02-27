@@ -94,6 +94,17 @@ class Settings(BaseSettings):
     LOKI_TAGS: dict = {"application": "swim-scheduler-parser", "env": "local"}
 
     # ===================================================================
+    # Discord 알림 설정
+    # ===================================================================
+
+    DISCORD_ENABLED: bool = False
+    DISCORD_WEBHOOK_URL: str = ""
+    DISCORD_TIMEOUT: int = 10
+    DISCORD_NOTIFY_ON_SUCCESS: bool = True
+    DISCORD_NOTIFY_ON_ERROR: bool = True
+    DISCORD_NOTIFY_ON_CLOSURE: bool = True
+
+    # ===================================================================
     # 파싱 설정
     # ===================================================================
 
