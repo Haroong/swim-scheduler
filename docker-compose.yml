@@ -34,6 +34,8 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-swimpass}
       DB_NAME: ${DB_NAME:-swim_scheduler}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      DISCORD_ENABLED: ${DISCORD_ENABLED:-false}
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
       TZ: Asia/Seoul
     volumes:
       - ./services/parser:/app
