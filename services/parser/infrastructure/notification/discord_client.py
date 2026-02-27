@@ -16,7 +16,7 @@ class DiscordClient:
     def __init__(self, webhook_url: str = None, timeout: int = None):
         self.webhook_url = webhook_url or settings.DISCORD_WEBHOOK_URL
         self.timeout = timeout or settings.DISCORD_TIMEOUT
-        self._enabled = settings.DISCORD_ENABLED and bool(self.webhook_url)
+        self._enabled = bool(self.webhook_url)
 
     @property
     def is_enabled(self) -> bool:

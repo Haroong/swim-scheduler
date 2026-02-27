@@ -139,7 +139,6 @@ jobs:
           ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
           GRAFANA_USER=admin
           GRAFANA_PASSWORD=${{ secrets.GRAFANA_PASSWORD }}
-          DISCORD_ENABLED=${{ secrets.DISCORD_ENABLED }}
           DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
           ENVFILE
             chmod 600 ~/swim-scheduler/.env

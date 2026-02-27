@@ -97,7 +97,6 @@ class Settings(BaseSettings):
     # Discord 알림 설정
     # ===================================================================
 
-    DISCORD_ENABLED: bool = False
     DISCORD_WEBHOOK_URL: str = ""
     DISCORD_TIMEOUT: int = 10
     DISCORD_NOTIFY_ON_SUCCESS: bool = True
