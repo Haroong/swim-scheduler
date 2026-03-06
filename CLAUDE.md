@@ -107,7 +107,7 @@ Root `.env` is shared across services (parser and api both read from it via `pyt
 |---|---|
 | `DB_HOST/PORT/USER/PASSWORD/NAME` | api, parser |
 | `ANTHROPIC_API_KEY` | parser (Claude API for LLM parsing) |
-| `REDIS_HOST/PORT` | api |
+| `REDIS_HOST/PORT` | api, parser |
 | `DISCORD_WEBHOOK_URL` | parser (optional; Discord notifications enabled when set) |
 | `LOKI_ENABLED`, `LOKI_URL` | api, parser (structured log shipping) |
 | `ENV` | api (`dev`/`prod`) |

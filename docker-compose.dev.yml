@@ -58,6 +58,8 @@ services:
       DB_NAME: ${DB_NAME:-swim_dev}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       TZ: Asia/Seoul
       ENV: dev
       LOKI_ENABLED: "true"
@@ -68,6 +70,8 @@ services:
       - swim-network
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       loki:
         condition: service_started
