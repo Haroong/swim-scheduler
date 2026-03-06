@@ -19,6 +19,9 @@ openpyxl>=3.1.0,<4.0.0       # Excel 파일 처리
 pymysql>=1.1.0,<2.0.0        # MariaDB/MySQL 드라이버
 sqlalchemy>=2.0.0,<3.0.0     # ORM (향후 적용 예정)
 
+# Cache Invalidation
+redis>=5.0.0,<6.0.0           # Redis Pub/Sub 캐시 무효화
+
 # Configuration
 python-dotenv>=1.0.0,<2.0.0
 pydantic>=2.0.0,<3.0.0

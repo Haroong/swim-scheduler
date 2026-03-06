@@ -18,6 +18,7 @@ from application.storage_service import StorageService
 from application.fallback_service import FallbackService
 from infrastructure.database.repository import SwimRepository
 from infrastructure.notification import NotificationService
+from infrastructure.cache import CacheInvalidationPublisher
 from core.parser.validators.date_validator import validate_valid_month
 from core.models.facility import Organization
 
@@ -200,6 +201,7 @@ def save_to_db(validated_results=None):
             return result
 
     notifier = NotificationService()
+    cache_publisher = CacheInvalidationPublisher()
 
     # DB 저장
     with SwimRepository() as repo:
@@ -212,6 +214,10 @@ def save_to_db(validated_results=None):
                     "source_notice_title": data.get("source_notice_title", ""),
                 })
                 notifier.notify_new_schedule(data)
+                cache_publisher.publish_schedule_saved(
+                    facility_name=data.get("facility_name", ""),
+                    valid_month=data.get("valid_month", ""),
+                )
 
                 # 휴장 감지
                 closures = data.get("closures", [])
@@ -241,6 +247,8 @@ def save_to_db(validated_results=None):
                     notifier.notify_pool_closure(**closure_info)
             else:
                 result["already_exists"] += 1
+
+    cache_publisher.close()
 
     logger.info(f"DB 저장 완료: {result['new_saved']}/{len(validated_results)}개")
     logger.info("=== DB 저장 완료 ===")
