@@ -14,6 +14,7 @@ from app.presentation.review.controller import router as review_router
 from app.domain.base import Base
 from app.infrastructure.persistence.database import engine
 from app.infrastructure.cache.redis import init_cache, close_cache
+from app.infrastructure.cache.cache_subscriber import CacheSubscriber
 
 
 @asynccontextmanager
@@ -37,9 +38,14 @@ async def lifespan(app: FastAPI):
     # Redis 캐시 초기화
     await init_cache()
 
+    # 캐시 무효화 Subscriber 시작
+    cache_subscriber = CacheSubscriber()
+    await cache_subscriber.start()
+
     yield
 
-    # Shutdown: Redis 연결 종료
+    # Shutdown: 캐시 무효화 Subscriber 종료 → Redis 연결 종료
+    await cache_subscriber.stop()
     await close_cache()
 
 
