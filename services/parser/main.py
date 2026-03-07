@@ -16,9 +16,13 @@ from infrastructure.config.logging_config import get_logger
 from application.swim_crawler_service import SwimCrawlerService
 from application.storage_service import StorageService
 from application.fallback_service import FallbackService
+from application.event_handlers import (
+    DiscordEventHandler, CacheEventHandler, ClosureDetectionHandler,
+)
 from infrastructure.database.repository import SwimRepository
 from infrastructure.notification import NotificationService
 from infrastructure.cache import CacheInvalidationPublisher
+from core.events import EventBus, ScheduleSaved, PoolClosureDetected
 from core.parser.validators.date_validator import validate_valid_month
 from core.models.facility import Organization
 
@@ -27,6 +31,11 @@ STORAGE_DIR = settings.STORAGE_DIR
 
 # 모든 기관 목록
 ALL_ORGANIZATIONS = list(Organization)
+
+
+# ===================================================================
+# Private 헬퍼 함수
+# ===================================================================
 
 
 def _get_search_keywords(primary_keyword: str) -> list[str]:
@@ -133,6 +142,28 @@ def _save_validated_results(validated_results: list) -> None:
         StorageService(STORAGE_DIR).save_validated_parsed_data(validated_results)
 
 
+def _create_event_bus() -> tuple[EventBus, ClosureDetectionHandler, CacheInvalidationPublisher]:
+    """이벤트 버스 생성 및 핸들러 등록"""
+    bus = EventBus()
+
+    discord_handler = DiscordEventHandler(NotificationService())
+    cache_publisher = CacheInvalidationPublisher()
+    cache_handler = CacheEventHandler(cache_publisher)
+    closure_handler = ClosureDetectionHandler(bus)
+
+    bus.subscribe(ScheduleSaved, discord_handler.on_schedule_saved)
+    bus.subscribe(ScheduleSaved, cache_handler.on_schedule_saved)
+    bus.subscribe(ScheduleSaved, closure_handler.on_schedule_saved)
+    bus.subscribe(PoolClosureDetected, discord_handler.on_pool_closure)
+
+    return bus, closure_handler, cache_publisher
+
+
+# ===================================================================
+# Public 파이프라인 함수
+# ===================================================================
+
+
 def crawl(keyword: str = "수영", max_pages: int = 3):
     """1단계: 크롤링"""
     logger.info("=== 1단계: 크롤링 시작 ===")
@@ -200,8 +231,7 @@ def save_to_db(validated_results=None):
         if not validated_results:
             return result
 
-    notifier = NotificationService()
-    cache_publisher = CacheInvalidationPublisher()
+    event_bus, closure_handler, cache_publisher = _create_event_bus()
 
     # DB 저장
     with SwimRepository() as repo:
@@ -213,41 +243,15 @@ def save_to_db(validated_results=None):
                     "valid_month": data.get("valid_month", ""),
                     "source_notice_title": data.get("source_notice_title", ""),
                 })
-                notifier.notify_new_schedule(data)
-                cache_publisher.publish_schedule_saved(
+                event_bus.publish(ScheduleSaved(
+                    data=data,
                     facility_name=data.get("facility_name", ""),
                     valid_month=data.get("valid_month", ""),
-                )
-
-                # 휴장 감지
-                closures = data.get("closures", [])
-                schedules = data.get("schedules", [])
-                notes = data.get("notes", [])
-
-                has_monthly_closure = any(
-                    c.get("closure_type") == "monthly" for c in closures
-                )
-                is_closed = has_monthly_closure or (
-                    len(schedules) == 0
-                    and any(kw in note for note in notes for kw in ("미운영", "휴장", "휴관"))
-                )
-
-                if is_closed:
-                    reason = next(
-                        (n for n in notes if any(kw in n for kw in ("미운영", "휴장", "휴관"))),
-                        "수영장 임시휴장",
-                    )
-                    closure_info = {
-                        "facility_name": data.get("facility_name", ""),
-                        "valid_month": data.get("valid_month", ""),
-                        "reason": reason,
-                        "source_url": data.get("source_url", ""),
-                    }
-                    result["closures"].append(closure_info)
-                    notifier.notify_pool_closure(**closure_info)
+                ))
             else:
                 result["already_exists"] += 1
 
+    result["closures"] = closure_handler.detected_closures
     cache_publisher.close()
 
     logger.info(f"DB 저장 완료: {result['new_saved']}/{len(validated_results)}개")
@@ -259,6 +263,11 @@ def save_base_schedule_fallbacks(validated_results=None):
     """4단계: 공지 없는 시설에 base_schedules 폴백 저장"""
     service = FallbackService(STORAGE_DIR)
     service.generate_and_save(validated_results)
+
+
+# ===================================================================
+# 엔트리포인트
+# ===================================================================
 
 
 def main():
