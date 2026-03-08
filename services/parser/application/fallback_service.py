@@ -2,11 +2,9 @@
 공지 없는 시설에 base_schedule 폴백 데이터를 생성·저장하는 서비스
 """
 import re
-from pathlib import Path
 
 from infrastructure.config.logging_config import get_logger
 from application.storage_service import StorageService
-from infrastructure.database.repository import SwimRepository
 from core.models.facility import Organization
 
 logger = get_logger(__name__)
@@ -15,8 +13,8 @@ logger = get_logger(__name__)
 class FallbackService:
     """공지 없는 시설에 base_schedule 폴백 데이터를 생성·저장하는 서비스"""
 
-    def __init__(self, storage_dir: Path):
-        self.storage = StorageService(storage_dir)
+    def __init__(self, storage: StorageService):
+        self.storage = storage
 
     def generate_and_save(self, validated_results=None):
         """공지 없는 시설에 base_schedules 폴백을 생성하여 DB에 저장"""
@@ -68,7 +66,8 @@ class FallbackService:
             return
 
         # 4. DB 저장
-        with SwimRepository() as repo:
+        from infrastructure.container import container
+        with container.swim_repository() as repo:
             success_count = 0
             for data in fallback_data:
                 if repo.save_parsed_data(data):

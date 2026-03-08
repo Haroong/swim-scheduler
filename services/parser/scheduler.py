@@ -12,7 +12,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from infrastructure.config.logging_config import get_logger
-from infrastructure.notification import NotificationService
+from infrastructure.container import container
 from main import crawl, parse, save_to_db
 
 logger = get_logger(__name__)
@@ -20,7 +20,7 @@ logger = get_logger(__name__)
 
 def run_daily_task():
     """매일 실행되는 크롤링 및 파싱 작업"""
-    notifier = NotificationService()
+    notifier = container.notification_service()
     errors = []
     start_time = time.time()
     monthly_notices = None

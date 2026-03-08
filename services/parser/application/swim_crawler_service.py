@@ -14,7 +14,6 @@
 - StorageService: 데이터 저장
 """
 import logging
-from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional
 
@@ -23,19 +22,19 @@ from .parsing_service import ParsingService
 from .storage_service import StorageService
 from core.models.crawler import PostDetail
 from core.models.facility import Organization
+from infrastructure.config import settings
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-STORAGE_DIR = Path(__file__).parent.parent / "storage"
-DOWNLOAD_DIR = Path(__file__).parent.parent / "downloads"
+DOWNLOAD_DIR = settings.DOWNLOAD_DIR
 
 
 class SwimCrawlerService:
     """통합 수영 크롤링 서비스 (snyouth + snhdc)"""
 
-    def __init__(self):
-        self.storage = StorageService(storage_dir=STORAGE_DIR)
+    def __init__(self, storage: StorageService):
+        self.storage = storage
 
     def crawl_base_schedules(self, save: bool = True) -> Dict[str, List[Dict]]:
         """
@@ -155,8 +154,8 @@ class SwimCrawlerService:
 
         # 신규 공지만 필터링 (DB 중복 확인)
         if skip_existing:
-            from infrastructure.database.repository import SwimRepository
-            repo = SwimRepository()
+            from infrastructure.container import container
+            repo = container.swim_repository()
             existing_urls = repo.get_existing_notice_urls()
             repo.close()
 
@@ -361,7 +360,8 @@ class SwimCrawlerService:
 
 # 테스트용 코드
 if __name__ == "__main__":
-    service = SwimCrawlerService()
+    from infrastructure.container import container
+    service = container.swim_crawler_service()
 
     # 1. 기본 스케줄 크롤링
     print("\n" + "="*60)

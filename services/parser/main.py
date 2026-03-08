@@ -11,23 +11,13 @@
 """
 import argparse
 
-from infrastructure.config import settings
 from infrastructure.config.logging_config import get_logger
-from application.swim_crawler_service import SwimCrawlerService
-from application.storage_service import StorageService
-from application.fallback_service import FallbackService
-from application.event_handlers import (
-    DiscordEventHandler, CacheEventHandler, ClosureDetectionHandler,
-)
-from infrastructure.database.repository import SwimRepository
-from infrastructure.notification import NotificationService
-from infrastructure.cache import CacheInvalidationPublisher
-from core.events import EventBus, ScheduleSaved, PoolClosureDetected
+from infrastructure.container import container
+from core.events import ScheduleSaved
 from core.parser.validators.date_validator import validate_valid_month
 from core.models.facility import Organization
 
 logger = get_logger(__name__)
-STORAGE_DIR = settings.STORAGE_DIR
 
 # 모든 기관 목록
 ALL_ORGANIZATIONS = list(Organization)
@@ -72,7 +62,7 @@ def _merge_notices_without_duplicates(all_notices: dict, new_notices: dict, org_
 
 
 def _crawl_monthly_notices_with_keywords(
-    service: SwimCrawlerService,
+    service,
     keywords: list[str],
     max_pages: int
 ) -> dict:
@@ -139,24 +129,7 @@ def _save_validated_results(validated_results: list) -> None:
         validated_results: 검증된 결과 리스트
     """
     if validated_results:
-        StorageService(STORAGE_DIR).save_validated_parsed_data(validated_results)
-
-
-def _create_event_bus() -> tuple[EventBus, ClosureDetectionHandler, CacheInvalidationPublisher]:
-    """이벤트 버스 생성 및 핸들러 등록"""
-    bus = EventBus()
-
-    discord_handler = DiscordEventHandler(NotificationService())
-    cache_publisher = CacheInvalidationPublisher()
-    cache_handler = CacheEventHandler(cache_publisher)
-    closure_handler = ClosureDetectionHandler(bus)
-
-    bus.subscribe(ScheduleSaved, discord_handler.on_schedule_saved)
-    bus.subscribe(ScheduleSaved, cache_handler.on_schedule_saved)
-    bus.subscribe(ScheduleSaved, closure_handler.on_schedule_saved)
-    bus.subscribe(PoolClosureDetected, discord_handler.on_pool_closure)
-
-    return bus, closure_handler, cache_publisher
+        container.storage_service().save_validated_parsed_data(validated_results)
 
 
 # ===================================================================
@@ -168,7 +141,7 @@ def crawl(keyword: str = "수영", max_pages: int = 3):
     """1단계: 크롤링"""
     logger.info("=== 1단계: 크롤링 시작 ===")
 
-    service = SwimCrawlerService()
+    service = container.swim_crawler_service()
 
     # 기본 스케줄 크롤링
     logger.info("기본 스케줄 크롤링...")
@@ -196,7 +169,7 @@ def parse(monthly_notices=None):
     """2단계: LLM 파싱 (첨부파일 기반)"""
     logger.info("=== 2단계: LLM 파싱 시작 ===")
 
-    service = SwimCrawlerService()
+    service = container.swim_crawler_service()
 
     # 양쪽 기관 모두 처리
     parsed_results = []
@@ -227,14 +200,16 @@ def save_to_db(validated_results=None):
 
     # 데이터 로드
     if validated_results is None:
-        validated_results = StorageService(STORAGE_DIR).load_validated_parsed_data()
+        validated_results = container.storage_service().load_validated_parsed_data()
         if not validated_results:
             return result
 
-    event_bus, closure_handler, cache_publisher = _create_event_bus()
+    event_bus = container.event_bus()
+    closure_handler = container.closure_detection_handler()
+    closure_handler.detected_closures = []  # 이전 실행의 상태 초기화
 
     # DB 저장
-    with SwimRepository() as repo:
+    with container.swim_repository() as repo:
         for data in validated_results:
             if repo.save_parsed_data(data):
                 result["new_saved"] += 1
@@ -252,7 +227,6 @@ def save_to_db(validated_results=None):
                 result["already_exists"] += 1
 
     result["closures"] = closure_handler.detected_closures
-    cache_publisher.close()
 
     logger.info(f"DB 저장 완료: {result['new_saved']}/{len(validated_results)}개")
     logger.info("=== DB 저장 완료 ===")
@@ -261,7 +235,7 @@ def save_to_db(validated_results=None):
 
 def save_base_schedule_fallbacks(validated_results=None):
     """4단계: 공지 없는 시설에 base_schedules 폴백 저장"""
-    service = FallbackService(STORAGE_DIR)
+    service = container.fallback_service()
     service.generate_and_save(validated_results)
 
 
@@ -283,7 +257,7 @@ def main():
     args = parser.parse_args()
 
     if args.test_discord:
-        notifier = NotificationService()
+        notifier = container.notification_service()
         notifier.notify_daily_summary(
             total_notices=5, new_saved=2, already_exists=3,
             parse_success=5, parse_total=5,
