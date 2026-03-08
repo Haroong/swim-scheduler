@@ -23,6 +23,11 @@ class ReviewRepository(ABC):
         pass
 
     @abstractmethod
+    def get_stats(self, facility_id: int) -> dict:
+        """시설별 리뷰 통계 (평균 별점, 리뷰 수)"""
+        pass
+
+    @abstractmethod
     def save(self, review: Review) -> Review:
         """리뷰 저장"""
         pass
