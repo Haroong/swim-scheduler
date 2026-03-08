@@ -5,13 +5,14 @@ Schedule Service
 import logging
 from typing import List, Optional
 from datetime import datetime
-from sqlalchemy import select, func
-from sqlalchemy.orm import Session, selectinload
 
-from app.domain import Facility, SwimSchedule, SwimSession, Notice
-from app.domain.closure import FacilityClosure
-from app.domain.fee.model import Fee
-from app.shared.util import get_season_from_month, should_include_schedule, should_include_session, check_facility_closure
+from app.domain.facility.repository import FacilityRepository
+from app.domain.schedule.repository import ScheduleRepository
+from app.domain.closure.repository import ClosureRepository
+from app.domain.notice.repository import NoticeRepository
+from app.domain.fee.repository import FeeRepository
+from app.shared.util import get_season_from_month, should_include_schedule, should_include_session
+from app.shared.util.closure_utils import check_facility_closure
 
 logger = logging.getLogger(__name__)
 
@@ -19,126 +20,66 @@ logger = logging.getLogger(__name__)
 class ScheduleService:
     """스케줄 조회 서비스"""
 
-    @staticmethod
-    def get_facilities(db: Session) -> List[dict]:
-        """
-        시설 목록 조회
+    def __init__(
+        self,
+        facility_repo: FacilityRepository,
+        schedule_repo: ScheduleRepository,
+        closure_repo: ClosureRepository,
+        notice_repo: NoticeRepository,
+        fee_repo: FeeRepository,
+    ):
+        self._facility_repo = facility_repo
+        self._schedule_repo = schedule_repo
+        self._closure_repo = closure_repo
+        self._notice_repo = notice_repo
+        self._fee_repo = fee_repo
 
-        Args:
-            db: SQLAlchemy Session
-
-        Returns:
-            시설명, 최신 월, 스케줄 개수
-        """
+    def get_facilities(self) -> List[dict]:
+        """시설 목록 조회"""
         try:
-            # Facility + SwimSchedule 조인, 집계
-            stmt = (
-                select(
-                    Facility.id,
-                    Facility.name,
-                    Facility.address,
-                    Facility.website_url,
-                    func.max(SwimSchedule.valid_month).label('latest_month'),
-                    func.count(func.distinct(SwimSchedule.id)).label('schedule_count')
-                )
-                .outerjoin(SwimSchedule)
-                .group_by(Facility.id, Facility.name, Facility.address, Facility.website_url)
-                .order_by(Facility.name)
-            )
-
-            results = db.execute(stmt).all()
-
-            facilities = []
-            for row in results:
-                facilities.append({
-                    "facility_id": row.id,
-                    "facility_name": row.name,
-                    "address": row.address,
-                    "website_url": row.website_url,
-                    "latest_month": row.latest_month if row.latest_month else None,
-                    "schedule_count": row.schedule_count
-                })
-
-            return facilities
-
+            return self._facility_repo.find_all_with_schedule_summary()
         except Exception as e:
             logger.error(f"시설 목록 조회 실패: {e}")
             return []
 
-    @staticmethod
     def get_schedules(
-        db: Session,
+        self,
         facility: Optional[str] = None,
         month: Optional[str] = None,
         season: Optional[str] = None
     ) -> List[dict]:
-        """
-        스케줄 조회
-
-        Args:
-            db: SQLAlchemy Session
-            facility: 시설명 (예: "야탑유스센터")
-            month: 월 (예: "2026-01" 또는 "2026-02")
-            season: 계절 필터 (예: "하절기", "동절기") - 제공시 해당 계절만 반환
-
-        Returns:
-            스케줄 목록
-        """
+        """스케줄 조회"""
         try:
-            stmt = (
-                select(SwimSchedule)
-                .join(SwimSchedule.facility)
-                .options(
-                    selectinload(SwimSchedule.facility),
-                    selectinload(SwimSchedule.sessions)
-                )
-                .order_by(
-                    SwimSchedule.valid_month.desc(),
-                    Facility.name,
-                    SwimSchedule.day_type
-                )
-            )
+            schedules = self._schedule_repo.find_schedules(facility, month)
 
-            # 동적 필터
-            if facility:
-                stmt = stmt.where(Facility.name == facility)
-
-            if month:
-                stmt = stmt.where(SwimSchedule.valid_month == month)
-                # 자동 계절 계산 (season이 명시되지 않은 경우)
-                if not season:
-                    try:
-                        # month에서 월 추출 (YYYY-MM 형식)
-                        month_num = int(month.split('-')[1])
-                        season = get_season_from_month(month_num)
-                        logger.info(f"Auto-calculated season from month {month}: {season}")
-                    except (IndexError, ValueError) as e:
-                        logger.warning(f"Could not parse month '{month}': {e}")
-
-            schedules = db.execute(stmt).scalars().all()
+            # 자동 계절 계산 (season이 명시되지 않은 경우)
+            if month and not season:
+                try:
+                    month_num = int(month.split('-')[1])
+                    season = get_season_from_month(month_num)
+                    logger.info(f"Auto-calculated season from month {month}: {season}")
+                except (IndexError, ValueError) as e:
+                    logger.warning(f"Could not parse month '{month}': {e}")
 
             # Season filtering
             if season:
-                # 명시적으로 season이 제공된 경우
                 logger.info(f"Season filter applied: {season}")
                 schedules = [
                     schedule for schedule in schedules
                     if should_include_schedule(schedule.season, season)
                 ]
             elif not month:
-                # month가 없는 경우, 각 스케줄의 valid_month를 기반으로 계절 필터링
                 logger.info("Auto-filtering each schedule by its month's season")
                 filtered_schedules = []
                 for schedule in schedules:
                     try:
-                        # valid_month에서 월 추출 (YYYY-MM 형식)
                         month_num = int(schedule.valid_month.split('-')[1])
                         schedule_season = get_season_from_month(month_num)
                         if should_include_schedule(schedule.season, schedule_season):
                             filtered_schedules.append(schedule)
                     except (IndexError, ValueError, AttributeError) as e:
                         logger.warning(f"Could not parse valid_month '{schedule.valid_month}': {e}")
-                        filtered_schedules.append(schedule)  # 파싱 실패시 포함
+                        filtered_schedules.append(schedule)
                 schedules = filtered_schedules
 
             # 데이터 그룹핑 (facility + month 기준)
@@ -149,30 +90,16 @@ class ScheduleService:
                 facility_name = schedule.facility.name
                 valid_month = schedule.valid_month
 
-                # 시설+월 키
                 key = f"{facility_id}_{valid_month}"
 
                 if key not in schedules_map:
-                    # 휴장 정보 조회
-                    closure_stmt = (
-                        select(FacilityClosure)
-                        .where(
-                            FacilityClosure.facility_id == facility_id,
-                            FacilityClosure.valid_month == valid_month
-                        )
-                    )
-                    closures = db.execute(closure_stmt).scalars().all()
+                    closures = self._closure_repo.find_by_facility_and_month(facility_id, valid_month)
 
-                    # 휴장 정보 파싱
                     closure_info = None
                     if closures:
-                        # 월 전체 휴장 여부 판단 (specific_date가 많거나 reason에 '휴장' 포함)
                         specific_dates = [c for c in closures if c.closure_type == 'specific_date']
                         regular_closures = [c for c in closures if c.closure_type == 'regular']
 
-                        # 전체 휴장 판단:
-                        # 1) closure_date가 NULL인 specific_date 레코드 = 월 전체 휴장
-                        # 2) specific_date가 15일 이상이면 월 전체 휴장으로 간주
                         full_closure = next(
                             (c for c in specific_dates if c.closure_date is None), None
                         )
@@ -190,7 +117,6 @@ class ScheduleService:
                                 "reason": reason
                             }
                         elif specific_dates or regular_closures:
-                            # 부분 휴장 정보
                             closure_info = {
                                 "is_closed": False,
                                 "closure_type": "partial",
@@ -212,7 +138,6 @@ class ScheduleService:
                         "closure_info": closure_info
                     }
 
-                # 스케줄 키 (day_type + season)
                 schedule_key = f"{schedule.day_type}_{schedule.season or ''}"
 
                 if schedule_key not in schedules_map[key]["schedules"]:
@@ -222,7 +147,6 @@ class ScheduleService:
                         "sessions": []
                     }
 
-                # 세션 추가
                 for session in schedule.sessions:
                     schedules_map[key]["schedules"][schedule_key]["sessions"].append({
                         "session_name": session.session_name,
@@ -233,7 +157,6 @@ class ScheduleService:
                         "applicable_days": session.applicable_days
                     })
 
-            # 결과 변환
             result = []
             for key, data in schedules_map.items():
                 item = {
@@ -252,24 +175,12 @@ class ScheduleService:
             logger.error(f"스케줄 조회 실패: {e}")
             return []
 
-    @staticmethod
-    def get_daily_schedules(db: Session, date_str: str) -> List[dict]:
-        """
-        특정 날짜의 자유수영 스케줄 조회
-
-        Args:
-            db: SQLAlchemy Session
-            date_str: 날짜 (예: "2026-01-18")
-
-        Returns:
-            해당 날짜에 운영하는 모든 시설의 스케줄 목록
-        """
+    def get_daily_schedules(self, date_str: str) -> List[dict]:
+        """특정 날짜의 자유수영 스케줄 조회"""
         try:
-            # 1. 날짜 파싱
             date_obj = datetime.strptime(date_str, "%Y-%m-%d")
 
-            # 2. 요일 계산
-            weekday = date_obj.weekday()  # 0=월요일, 6=일요일
+            weekday = date_obj.weekday()
             if weekday == 5:
                 day_type = "토요일"
             elif weekday == 6:
@@ -277,30 +188,12 @@ class ScheduleService:
             else:
                 day_type = "평일"
 
-            # 3. 계절 판단 (월 기준: 3~10월=하절기, 11~2월=동절기)
             season = get_season_from_month(date_obj.month)
-
-            # 4. valid_month 생성 (YYYY-MM 형식)
             valid_month = f"{date_obj.year}-{date_obj.month:02d}"
 
             logger.info(f"날짜 조회: {date_str} → {day_type}, {season}, {valid_month}")
 
-            # 5. ORM 쿼리
-            stmt = (
-                select(SwimSchedule)
-                .join(SwimSchedule.facility)
-                .options(
-                    selectinload(SwimSchedule.facility),
-                    selectinload(SwimSchedule.sessions)
-                )
-                .where(
-                    SwimSchedule.day_type == day_type,
-                    SwimSchedule.valid_month == valid_month
-                )
-                .order_by(Facility.name)
-            )
-
-            schedules = db.execute(stmt).scalars().all()
+            schedules = self._schedule_repo.find_by_day_type_and_month(day_type, valid_month)
 
             # Filter by season
             schedules = [
@@ -309,7 +202,6 @@ class ScheduleService:
             ]
             logger.info(f"Season filter: {season}, {len(schedules)} schedules after filtering")
 
-            # 시설별로 데이터 구성
             facilities_map = {}
 
             for schedule in schedules:
@@ -317,25 +209,12 @@ class ScheduleService:
                 facility_name = schedule.facility.name
 
                 if facility_id not in facilities_map:
-                    # Notice 정보 조회 (해당 시설 + 월)
-                    notice_stmt = (
-                        select(Notice)
-                        .where(
-                            Notice.facility_id == facility_id,
-                            Notice.valid_date == valid_month
-                        )
-                        .limit(1)
-                    )
-                    notice = db.execute(notice_stmt).scalar_one_or_none()
+                    notice = self._notice_repo.find_by_facility_and_month(facility_id, valid_month)
 
-                    # 휴무일 체크
-                    is_closed, closure_reason = check_facility_closure(
-                        db, facility_id, date_obj, valid_month
-                    )
+                    closures = self._closure_repo.find_by_facility_and_month(facility_id, valid_month)
+                    is_closed, closure_reason = check_facility_closure(closures, date_obj, valid_month)
 
-                    # Fee 조회
-                    fee_stmt = select(Fee).where(Fee.facility_id == facility_id)
-                    fees = db.execute(fee_stmt).scalars().all()
+                    fees = self._fee_repo.find_by_facility_id(facility_id)
 
                     facilities_map[facility_id] = {
                         "facility_id": facility_id,
@@ -358,17 +237,13 @@ class ScheduleService:
                         "crawled_at": notice.crawled_at.isoformat() if notice and notice.crawled_at else None
                     }
 
-                    # 휴무일이면 세션 추가 건너뛰기
                     if is_closed:
                         continue
 
-                # 휴무일이면 세션 추가 건너뛰기
                 if facilities_map[facility_id].get("is_closed"):
                     continue
 
-                # 세션 추가 (applicable_days 필터링 적용)
                 for session in schedule.sessions:
-                    # 해당 요일에 적용되는 세션만 포함
                     if not should_include_session(session.applicable_days, weekday):
                         continue
 
@@ -380,9 +255,9 @@ class ScheduleService:
                         "lanes": session.lanes
                     })
 
-            # 6. 휴장 시설 추가 (스케줄은 없지만 Notice가 있고 전체 휴장인 시설)
-            closed_facilities = ScheduleService._get_closed_facilities(
-                db, valid_month, set(facilities_map.keys()), date_str, day_type
+            # 휴장 시설 추가
+            closed_facilities = self._get_closed_facilities(
+                valid_month, set(facilities_map.keys()), date_str, day_type
             )
             for closed_facility in closed_facilities:
                 if closed_facility["facility_id"] not in facilities_map:
@@ -400,79 +275,34 @@ class ScheduleService:
             logger.error(f"일별 스케줄 조회 실패: {e}")
             return []
 
-    @staticmethod
     def _get_closed_facilities(
-        db: Session,
+        self,
         valid_month: str,
         existing_facility_ids: set,
         date_str: str,
         day_type: str
     ) -> List[dict]:
-        """
-        전체 휴장 시설 조회 (스케줄이 없지만 Notice와 휴장 정보가 있는 시설)
-
-        Args:
-            db: SQLAlchemy Session
-            valid_month: 적용 월 (YYYY-MM)
-            existing_facility_ids: 이미 조회된 시설 ID set
-            date_str: 날짜 문자열
-            day_type: 요일 타입
-
-        Returns:
-            휴장 시설 목록
-        """
+        """전체 휴장 시설 조회 (스케줄이 없지만 Notice와 휴장 정보가 있는 시설)"""
         try:
-            # Notice가 있지만 스케줄이 없는 시설 조회
-            # 1. 해당 월에 Notice가 있는 시설
-            notice_stmt = (
-                select(Notice)
-                .join(Notice.facility)
-                .where(Notice.valid_date == valid_month)
-            )
-            notices = db.execute(notice_stmt).scalars().all()
+            notices = self._notice_repo.find_by_valid_month(valid_month)
 
             closed_facilities = []
             for notice in notices:
                 facility_id = notice.facility_id
 
-                # 이미 스케줄이 있는 시설은 제외
                 if facility_id in existing_facility_ids:
                     continue
 
-                # 해당 시설에 스케줄이 있는지 확인
-                schedule_check_stmt = (
-                    select(func.count(SwimSchedule.id))
-                    .where(
-                        SwimSchedule.facility_id == facility_id,
-                        SwimSchedule.valid_month == valid_month
-                    )
-                )
-                schedule_count = db.execute(schedule_check_stmt).scalar()
-
+                schedule_count = self._schedule_repo.count_by_facility_and_month(facility_id, valid_month)
                 if schedule_count > 0:
-                    # 스케줄이 있으면 휴장 시설이 아님
                     continue
 
-                # 명시적 휴장 레코드가 있는 경우에만 휴장으로 처리
-                closure_stmt = (
-                    select(FacilityClosure)
-                    .where(
-                        FacilityClosure.facility_id == facility_id,
-                        FacilityClosure.valid_month == valid_month
-                    )
-                    .limit(1)
-                )
-                closure = db.execute(closure_stmt).scalar_one_or_none()
-
+                closure = self._closure_repo.find_first_by_facility_and_month(facility_id, valid_month)
                 if not closure:
                     continue
 
-                # 시설 정보 조회
                 facility = notice.facility
-
-                # Fee 조회
-                fee_stmt = select(Fee).where(Fee.facility_id == facility_id)
-                fees = db.execute(fee_stmt).scalars().all()
+                fees = self._fee_repo.find_by_facility_id(facility_id)
 
                 closed_facilities.append({
                     "facility_id": facility_id,
@@ -501,31 +331,18 @@ class ScheduleService:
             logger.error(f"휴장 시설 조회 실패: {e}")
             return []
 
-    @staticmethod
-    def get_calendar_data(db: Session, year: int, month: int) -> dict:
-        """
-        달력용 데이터 조회
-
-        Args:
-            db: SQLAlchemy Session
-            year: 년도 (예: 2026)
-            month: 월 (1-12)
-
-        Returns:
-            달력 데이터 (해당 월의 계절에 맞는 스케줄만 포함)
-        """
+    def get_calendar_data(self, year: int, month: int) -> dict:
+        """달력용 데이터 조회"""
         month_str = f"{year}-{month:02d}"
 
-        # Calculate season for the requested month
         season = get_season_from_month(month)
         logger.info(f"Calendar data: {year}-{month:02d}, Season: {season}")
 
-        # Get schedules with season filter
-        schedules = ScheduleService.get_schedules(db, month=month_str, season=season)
+        schedules = self.get_schedules(month=month_str, season=season)
 
         return {
             "year": year,
             "month": month,
-            "season": season,  # 응답에 계절 정보 추가
+            "season": season,
             "schedules": schedules
         }
