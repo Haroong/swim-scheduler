@@ -11,6 +11,7 @@
 """
 import argparse
 
+from core.exceptions import RepositoryError
 from infrastructure.config.logging_config import get_logger
 from infrastructure.container import container
 from core.events import ScheduleSaved
@@ -211,20 +212,23 @@ def save_to_db(validated_results=None):
     # DB 저장
     with container.swim_repository() as repo:
         for data in validated_results:
-            if repo.save_parsed_data(data):
-                result["new_saved"] += 1
-                result["saved_items"].append({
-                    "facility_name": data.get("facility_name", ""),
-                    "valid_month": data.get("valid_month", ""),
-                    "source_notice_title": data.get("source_notice_title", ""),
-                })
-                event_bus.publish(ScheduleSaved(
-                    data=data,
-                    facility_name=data.get("facility_name", ""),
-                    valid_month=data.get("valid_month", ""),
-                ))
-            else:
-                result["already_exists"] += 1
+            try:
+                if repo.save_parsed_data(data):
+                    result["new_saved"] += 1
+                    result["saved_items"].append({
+                        "facility_name": data.get("facility_name", ""),
+                        "valid_month": data.get("valid_month", ""),
+                        "source_notice_title": data.get("source_notice_title", ""),
+                    })
+                    event_bus.publish(ScheduleSaved(
+                        data=data,
+                        facility_name=data.get("facility_name", ""),
+                        valid_month=data.get("valid_month", ""),
+                    ))
+                else:
+                    result["already_exists"] += 1
+            except RepositoryError as e:
+                logger.error(f"DB 저장 실패: {e}")
 
     result["closures"] = closure_handler.detected_closures
 

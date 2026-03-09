@@ -6,6 +6,7 @@
 import logging
 from typing import List
 from core.crawler.factory import CrawlerFactory
+from core.exceptions import CrawlError
 from core.models.crawler import PostSummary, PostDetail
 from core.models.facility import Organization
 
@@ -66,9 +67,12 @@ class CrawlingService:
         # 2. 상세 정보 수집 (시설명 전달)
         details = []
         for post in posts:
-            detail = self.detail_crawler.get_detail(post.detail_url, facility_name=post.facility_name)
-            if detail:
+            try:
+                detail = self.detail_crawler.get_detail(post.detail_url, facility_name=post.facility_name)
                 details.append(detail)
+            except CrawlError as e:
+                logger.warning(f"상세 크롤링 실패: {e}")
+                continue
 
         logger.info(f"[{self.org.value}] 상세 정보 수집 완료: {len(details)}개")
         return details

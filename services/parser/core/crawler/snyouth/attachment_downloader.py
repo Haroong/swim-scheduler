@@ -7,6 +7,7 @@ from typing import List
 import logging
 
 from core.crawler.base.attachment_downloader import BaseAttachmentDownloader
+from core.exceptions import DownloadError
 from core.models.crawler import PostDetail
 
 logger = logging.getLogger(__name__)
@@ -32,12 +33,15 @@ class AttachmentDownloader(BaseAttachmentDownloader):
             if attachment.file_ext.lower() not in ["hwp", "pdf"]:
                 continue
 
-            file_path = self.download(
-                url=attachment.download_url,
-                filename=attachment.filename
-            )
-            if file_path:
+            try:
+                file_path = self.download(
+                    url=attachment.download_url,
+                    filename=attachment.filename
+                )
                 downloaded_files.append(file_path)
+            except DownloadError as e:
+                logger.warning(f"첨부파일 다운로드 실패: {attachment.filename} - {e}")
+                continue
 
         return downloaded_files
 

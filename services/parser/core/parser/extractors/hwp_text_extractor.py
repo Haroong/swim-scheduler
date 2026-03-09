@@ -9,6 +9,8 @@ from typing import Optional
 import logging
 import re
 
+from core.exceptions import TextExtractionError
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -29,7 +31,7 @@ class HwpTextExtractor:
             logger.warning("olefile 모듈이 설치되어 있지 않습니다. pip install olefile 실행 필요")
             self.olefile = None
 
-    def extract_text(self, hwp_path: Path) -> Optional[str]:
+    def extract_text(self, hwp_path: Path) -> str:
         """
         HWP 파일에서 텍스트 추출
 
@@ -37,27 +39,26 @@ class HwpTextExtractor:
             hwp_path: HWP 파일 경로
 
         Returns:
-            추출된 텍스트 또는 None
+            추출된 텍스트
+
+        Raises:
+            TextExtractionError: 텍스트 추출 실패 시
         """
         if not self.olefile:
-            logger.error("olefile 모듈이 없어 HWP 파싱 불가")
-            return None
+            raise TextExtractionError("olefile 모듈이 없어 HWP 파싱 불가")
 
         if not hwp_path.exists():
-            logger.error(f"파일이 존재하지 않음: {hwp_path}")
-            return None
+            raise TextExtractionError(f"파일이 존재하지 않음: {hwp_path}")
 
         try:
             ole = self.olefile.OleFileIO(str(hwp_path))
         except Exception as e:
-            logger.error(f"HWP 파일 열기 실패: {e}")
-            return None
+            raise TextExtractionError(f"HWP 파일 열기 실패: {e}", cause=e)
 
         try:
             # HWP 파일 구조 확인
             if not ole.exists("FileHeader"):
-                logger.error("유효한 HWP 파일이 아님 (FileHeader 없음)")
-                return None
+                raise TextExtractionError("유효한 HWP 파일이 아님 (FileHeader 없음)")
 
             # FileHeader에서 압축 여부 확인
             header = ole.openstream("FileHeader").read()
@@ -75,11 +76,15 @@ class HwpTextExtractor:
                     if section_text:
                         text_parts.append(section_text)
 
-            return "\n".join(text_parts) if text_parts else None
+            if not text_parts:
+                raise TextExtractionError(f"HWP에서 텍스트를 추출할 수 없음: {hwp_path}")
 
+            return "\n".join(text_parts)
+
+        except TextExtractionError:
+            raise
         except Exception as e:
-            logger.error(f"텍스트 추출 중 오류: {e}")
-            return None
+            raise TextExtractionError(f"텍스트 추출 중 오류: {e}", cause=e)
         finally:
             ole.close()
 

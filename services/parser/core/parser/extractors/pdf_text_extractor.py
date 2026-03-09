@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Optional
 import logging
 
+from core.exceptions import TextExtractionError
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -26,7 +28,7 @@ class PdfTextExtractor:
             logger.warning("PyPDF2 모듈이 설치되어 있지 않습니다. pip install PyPDF2 실행 필요")
             self.pypdf2 = None
 
-    def extract_text(self, pdf_path: Path) -> Optional[str]:
+    def extract_text(self, pdf_path: Path) -> str:
         """
         PDF 파일에서 텍스트 추출
 
@@ -34,15 +36,16 @@ class PdfTextExtractor:
             pdf_path: PDF 파일 경로
 
         Returns:
-            추출된 텍스트 또는 None
+            추출된 텍스트
+
+        Raises:
+            TextExtractionError: 텍스트 추출 실패 시
         """
         if not self.pypdf2:
-            logger.error("PyPDF2 모듈이 없어 PDF 파싱 불가")
-            return None
+            raise TextExtractionError("PyPDF2 모듈이 없어 PDF 파싱 불가")
 
         if not pdf_path.exists():
-            logger.error(f"파일이 존재하지 않음: {pdf_path}")
-            return None
+            raise TextExtractionError(f"파일이 존재하지 않음: {pdf_path}")
 
         try:
             with open(pdf_path, "rb") as f:
@@ -63,12 +66,12 @@ class PdfTextExtractor:
                     logger.info(f"PDF 텍스트 추출 성공: {len(result)}자")
                     return result
                 else:
-                    logger.warning(f"PDF에서 텍스트를 추출할 수 없음: {pdf_path}")
-                    return None
+                    raise TextExtractionError(f"PDF에서 텍스트를 추출할 수 없음: {pdf_path}")
 
+        except TextExtractionError:
+            raise
         except Exception as e:
-            logger.error(f"PDF 파일 처리 중 오류: {e}")
-            return None
+            raise TextExtractionError(f"PDF 파일 처리 중 오류: {e}", cause=e)
 
 
 # 테스트용 코드

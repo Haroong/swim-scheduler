@@ -7,6 +7,7 @@ from typing import Optional, Dict
 import logging
 
 from core.crawler.base.detail_crawler import BaseDetailCrawler
+from core.exceptions import CrawlError
 from core.models.crawler import PostDetail, Attachment
 from infrastructure.utils.html_utils import extract_clean_text
 
@@ -21,7 +22,7 @@ class DetailCrawler(BaseDetailCrawler):
           별도 detail 페이지 크롤링 불필요
     """
 
-    def get_detail(self, post_url: str, **kwargs) -> Optional[PostDetail]:
+    def get_detail(self, post_url: str, **kwargs) -> PostDetail:
         """
         게시글 상세 정보 가져오기
 
@@ -33,16 +34,18 @@ class DetailCrawler(BaseDetailCrawler):
 
         Returns:
             PostDetail 객체
+
+        Raises:
+            CrawlError: 변환 실패 시
         """
         list_item = kwargs.get("list_item")
         if not list_item:
-            self.logger.error("list_item이 필요합니다")
-            return None
+            raise CrawlError("list_item이 필요합니다")
 
         return self.from_list_item(list_item)
 
     @staticmethod
-    def from_list_item(list_item: Dict) -> Optional[PostDetail]:
+    def from_list_item(list_item: Dict) -> PostDetail:
         """
         list_crawler의 JSON 아이템을 PostDetail로 변환
 
@@ -50,7 +53,10 @@ class DetailCrawler(BaseDetailCrawler):
             list_item: selectNoticeList.ajax 응답의 data 배열 아이템
 
         Returns:
-            PostDetail 객체 또는 None
+            PostDetail 객체
+
+        Raises:
+            CrawlError: 변환 실패 시
         """
         try:
             # 필드 추출
@@ -99,8 +105,7 @@ class DetailCrawler(BaseDetailCrawler):
             return post_detail
 
         except Exception as e:
-            logger.error(f"PostDetail 변환 실패: {e}")
-            return None
+            raise CrawlError(f"PostDetail 변환 실패: {e}", cause=e)
 
     @staticmethod
     def to_dict(post_detail: PostDetail) -> Dict:

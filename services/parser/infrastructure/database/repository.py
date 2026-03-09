@@ -8,6 +8,7 @@ import logging
 from pathlib import Path
 from typing import Optional, List
 
+from core.exceptions import RepositoryError
 from infrastructure.database.connection import get_connection
 
 logger = logging.getLogger(__name__)
@@ -119,10 +120,12 @@ class SwimRepository:
             logger.info(f"저장 완료: {facility_name}")
             return True
 
+        except RepositoryError:
+            self._rollback()
+            raise
         except Exception as e:
             self._rollback()
-            logger.error(f"저장 실패: {e}")
-            return False
+            raise RepositoryError(f"저장 실패: {e}", cause=e)
 
     def _get_or_create_facility(self, cursor, name: str) -> int:
         """시설 조회 또는 생성"""

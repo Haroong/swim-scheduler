@@ -12,6 +12,7 @@ import logging
 import re
 from typing import Optional
 
+from core.exceptions import ParseError
 from infrastructure.config import settings
 from infrastructure.config.logging_config import get_logger
 from core.parser.llm.prompts import EXTRACTION_PROMPT, CLOSURE_EXTRACTION_PROMPT
@@ -52,7 +53,7 @@ class LLMParser:
         except Exception as e:
             logger.error(f"Anthropic 클라이언트 초기화 실패: {e}")
 
-    def parse_schedule(self, raw_text: str, facility_name: str = "", notice_date: str = "", notice_title: str = "", source_url: str = "") -> Optional[ParsedScheduleData]:
+    def parse_schedule(self, raw_text: str, facility_name: str = "", notice_date: str = "", notice_title: str = "", source_url: str = "") -> ParsedScheduleData:
         """
         raw_text에서 자유수영 스케줄 정보만 추출 (휴무일 제외)
 
@@ -64,15 +65,16 @@ class LLMParser:
             source_url: 원본 URL
 
         Returns:
-            ParsedScheduleData DTO (closures는 빈 배열) 또는 None
+            ParsedScheduleData DTO (closures는 빈 배열)
+
+        Raises:
+            ParseError: 파싱 실패 시
         """
         if not self.client:
-            logger.error("Anthropic 클라이언트가 초기화되지 않았습니다.")
-            return None
+            raise ParseError("Anthropic 클라이언트가 초기화되지 않았습니다.")
 
         if not raw_text or len(raw_text.strip()) < 50:
-            logger.warning("파싱할 텍스트가 너무 짧습니다.")
-            return None
+            raise ParseError("파싱할 텍스트가 너무 짧습니다.")
 
         # 자유수영 전용 프롬프트 구성
         prompt = EXTRACTION_PROMPT + raw_text[:8000]  # 토큰 제한 고려
@@ -111,33 +113,34 @@ class LLMParser:
             response_text = response.content[0].text.strip()
             result = self._extract_json(response_text)
 
-            if result:
-                result["source_url"] = source_url
-                result["closures"] = []  # 자유수영 파싱에서는 closures 제외
-                parsed_data = ParsedScheduleData.from_dict(result)
-                logger.info(f"자유수영 스케줄 파싱 성공: {parsed_data.facility_name}")
+            if not result:
+                raise ParseError("LLM 응답에서 JSON을 추출할 수 없습니다.")
 
-                # 검증 및 자동 수정
-                validator = ScheduleValidator()
+            result["source_url"] = source_url
+            result["closures"] = []  # 자유수영 파싱에서는 closures 제외
+            parsed_data = ParsedScheduleData.from_dict(result)
+            logger.info(f"자유수영 스케줄 파싱 성공: {parsed_data.facility_name}")
+
+            # 검증 및 자동 수정
+            validator = ScheduleValidator()
+            is_valid, warnings, errors = validator.validate(parsed_data)
+
+            if not is_valid:
+                logger.warning(f"파싱 결과 검증 실패: {errors}")
+                parsed_data = validate_and_fix(parsed_data)
+
                 is_valid, warnings, errors = validator.validate(parsed_data)
+                if is_valid:
+                    logger.info("자동 수정 후 검증 성공")
+                else:
+                    logger.error(f"자동 수정 후에도 검증 실패: {errors}")
 
-                if not is_valid:
-                    logger.warning(f"파싱 결과 검증 실패: {errors}")
-                    parsed_data = validate_and_fix(parsed_data)
+            return parsed_data
 
-                    is_valid, warnings, errors = validator.validate(parsed_data)
-                    if is_valid:
-                        logger.info("자동 수정 후 검증 성공")
-                    else:
-                        logger.error(f"자동 수정 후에도 검증 실패: {errors}")
-
-                return parsed_data
-
-            return None
-
+        except ParseError:
+            raise
         except Exception as e:
-            logger.error(f"자유수영 스케줄 파싱 실패: {e}")
-            return None
+            raise ParseError(f"자유수영 스케줄 파싱 실패: {e}", cause=e)
 
     def parse_closures(self, raw_text: str, facility_name: str = "", notice_date: str = "") -> list[ClosureData]:
         """
@@ -228,7 +231,7 @@ class LLMParser:
         Returns:
             ParsedScheduleData DTO 또는 None
         """
-        # 1. 자유수영 스케줄 파싱
+        # 1. 자유수영 스케줄 파싱 (ParseError는 호출자에게 전파)
         parsed_data = self.parse_schedule(
             raw_text=raw_text,
             facility_name=facility_name,
@@ -236,9 +239,6 @@ class LLMParser:
             notice_title=notice_title,
             source_url=source_url
         )
-
-        if not parsed_data:
-            return None
 
         # 2. 휴무일 파싱
         closures = self.parse_closures(

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import List, Optional, Dict
 from core.crawler.snhdc.attachment_downloader import AttachmentDownloader as SnhdcAttachmentDownloader
 from core.crawler.snyouth.attachment_downloader import AttachmentDownloader as SnyouthAttachmentDownloader
+from core.exceptions import DownloadError, TextExtractionError, ParseError
 from core.parser.extractors.hwp_text_extractor import HwpTextExtractor
 from core.parser.extractors.pdf_text_extractor import PdfTextExtractor
 from core.parser.validators.content_validator import ContentValidator
@@ -54,48 +55,48 @@ class ParsingService:
         """
         logger.info(f"파싱 시작: {notice.title}")
 
-        # 1. 첨부파일 다운로드 (있는 경우)
-        file_path = None
-        text = None
+        try:
+            # 1. 첨부파일 다운로드 (있는 경우)
+            file_path = None
+            text = None
 
-        if notice.has_attachment:
-            file_paths = self.downloader.download_from_post_detail(notice)
-            if file_paths:
-                # HWP 또는 PDF 파일 찾기 (우선순위 기반)
-                file_path = self._select_best_file(file_paths)
-                if file_path:
-                    logger.info(f"파일 다운로드 성공: {file_path.name}")
+            if notice.has_attachment:
+                file_paths = self.downloader.download_from_post_detail(notice)
+                if file_paths:
+                    # HWP 또는 PDF 파일 찾기 (우선순위 기반)
+                    file_path = self._select_best_file(file_paths)
+                    if file_path:
+                        logger.info(f"파일 다운로드 성공: {file_path.name}")
 
-        # 2. 텍스트 추출
-        if file_path:
-            text = self._extract_text(file_path)
-        else:
-            # 본문에서 직접 파싱
-            text = notice.content_text
+            # 2. 텍스트 추출
+            if file_path:
+                text = self._extract_text(file_path)
+            else:
+                # 본문에서 직접 파싱
+                text = notice.content_text
 
-        if not text or len(text) < 50:
-            logger.warning(f"텍스트 추출 실패 또는 텍스트가 너무 짧음: {notice.title}")
-            return None
+            if not text or len(text) < 50:
+                logger.warning(f"텍스트 추출 실패 또는 텍스트가 너무 짧음: {notice.title}")
+                return None
 
-        logger.info(f"텍스트 추출 성공: {len(text)}자")
+            logger.info(f"텍스트 추출 성공: {len(text)}자")
 
-        # 3. 콘텐츠 검증
-        if not self.validator.contains_swim_info(text):
-            logger.warning(f"수영 정보가 포함되지 않음: {notice.title}")
-            return None
+            # 3. 콘텐츠 검증
+            if not self.validator.contains_swim_info(text):
+                logger.warning(f"수영 정보가 포함되지 않음: {notice.title}")
+                return None
 
-        logger.info("콘텐츠 검증 통과")
+            logger.info("콘텐츠 검증 통과")
 
-        # 4. LLM 파싱
-        parsed_data = self.llm_parser.parse(
-            raw_text=text,
-            facility_name=notice.facility_name,
-            notice_date=notice.date,
-            notice_title=notice.title,
-            source_url=notice.source_url
-        )
+            # 4. LLM 파싱
+            parsed_data = self.llm_parser.parse(
+                raw_text=text,
+                facility_name=notice.facility_name,
+                notice_date=notice.date,
+                notice_title=notice.title,
+                source_url=notice.source_url
+            )
 
-        if parsed_data:
             # ParsedScheduleData 객체를 딕셔너리로 변환
             result = parsed_data.to_dict()
 
@@ -122,8 +123,9 @@ class ParsingService:
             result["source_notice_date"] = notice.date
             logger.info(f"파싱 성공: {notice.title}")
             return result
-        else:
-            logger.warning(f"LLM 파싱 실패: {notice.title}")
+
+        except (DownloadError, TextExtractionError, ParseError) as e:
+            logger.warning(f"파싱 실패 [{notice.title}]: {e}")
             return None
 
     def parse_batch(self, notices: List[PostDetail]) -> List[Dict]:
@@ -213,7 +215,7 @@ class ParsingService:
 
         return selected
 
-    def _extract_text(self, file_path: Path) -> Optional[str]:
+    def _extract_text(self, file_path: Path) -> str:
         """
         파일에서 텍스트 추출
 
@@ -221,17 +223,15 @@ class ParsingService:
             file_path: 파일 경로
 
         Returns:
-            추출된 텍스트 (실패 시 None)
+            추출된 텍스트
+
+        Raises:
+            TextExtractionError: 텍스트 추출 실패 시
         """
-        try:
-            ext = file_path.suffix.lower()
-            if ext == ".hwp":
-                return self.hwp_extractor.extract_text(file_path)
-            elif ext == ".pdf":
-                return self.pdf_extractor.extract_text(file_path)
-            else:
-                logger.warning(f"지원하지 않는 파일 형식: {ext}")
-                return None
-        except Exception as e:
-            logger.error(f"텍스트 추출 실패: {file_path.name} - {e}")
-            return None
+        ext = file_path.suffix.lower()
+        if ext == ".hwp":
+            return self.hwp_extractor.extract_text(file_path)
+        elif ext == ".pdf":
+            return self.pdf_extractor.extract_text(file_path)
+        else:
+            raise TextExtractionError(f"지원하지 않는 파일 형식: {ext}")

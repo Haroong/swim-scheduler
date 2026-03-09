@@ -11,6 +11,7 @@ from urllib.parse import unquote
 
 import requests
 
+from core.exceptions import DownloadError
 from infrastructure.utils.http_utils import create_session
 
 logging.basicConfig(level=logging.INFO)
@@ -33,7 +34,7 @@ class BaseAttachmentDownloader:
 
         self.session = create_session()
 
-    def download(self, url: str, filename: Optional[str] = None) -> Optional[Path]:
+    def download(self, url: str, filename: Optional[str] = None) -> Path:
         """
         파일 다운로드
 
@@ -42,22 +43,23 @@ class BaseAttachmentDownloader:
             filename: 저장할 파일명 (없으면 자동 추출)
 
         Returns:
-            저장된 파일 경로 또는 None
+            저장된 파일 경로
+
+        Raises:
+            DownloadError: 다운로드 실패 시
         """
         try:
             response = self.session.get(url, stream=True, timeout=30)
             response.raise_for_status()
         except requests.RequestException as e:
-            logger.error(f"다운로드 실패 ({url}): {e}")
-            return None
+            raise DownloadError(f"다운로드 실패 ({url}): {e}", cause=e)
 
         # 파일명 결정
         if not filename:
             filename = self._extract_filename_from_response(response, url)
 
         if not filename:
-            logger.error(f"파일명을 결정할 수 없음: {url}")
-            return None
+            raise DownloadError(f"파일명을 결정할 수 없음: {url}")
 
         # 안전한 파일명으로 변환
         safe_filename = self._sanitize_filename(filename)
@@ -74,8 +76,7 @@ class BaseAttachmentDownloader:
             return file_path
 
         except IOError as e:
-            logger.error(f"파일 저장 실패: {e}")
-            return None
+            raise DownloadError(f"파일 저장 실패: {e}", cause=e)
 
     def _extract_filename_from_response(self, response, url: str) -> Optional[str]:
         """응답 헤더 또는 URL에서 파일명 추출"""
@@ -126,11 +127,11 @@ class BaseAttachmentDownloader:
 
         return safe_name
 
-    def download_hwp(self, url: str, filename: Optional[str] = None) -> Optional[Path]:
+    def download_hwp(self, url: str, filename: Optional[str] = None) -> Path:
         """HWP 파일 다운로드 (확장자 검증 포함)"""
         filepath = self.download(url, filename)
 
-        if filepath and not filepath.suffix.lower() == ".hwp":
+        if not filepath.suffix.lower() == ".hwp":
             logger.warning(f"다운로드된 파일이 HWP가 아님: {filepath}")
 
         return filepath

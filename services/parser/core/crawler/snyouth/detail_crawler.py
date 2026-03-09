@@ -9,6 +9,7 @@ import re
 import requests
 
 from core.crawler.base.detail_crawler import BaseDetailCrawler
+from core.exceptions import CrawlError
 from core.models.crawler import PostDetail, Attachment
 from infrastructure.utils.http_utils import create_session
 
@@ -28,7 +29,7 @@ class DetailCrawler(BaseDetailCrawler):
         super().__init__()
         self.session = create_session()
 
-    def get_detail(self, post_url: str, facility_name: str = "", **kwargs) -> Optional[PostDetail]:
+    def get_detail(self, post_url: str, facility_name: str = "", **kwargs) -> PostDetail:
         """
         상세 페이지에서 정보 추출
 
@@ -38,16 +39,21 @@ class DetailCrawler(BaseDetailCrawler):
             **kwargs: 추가 파라미터
 
         Returns:
-            PostDetail 객체 또는 None
+            PostDetail 객체
+
+        Raises:
+            CrawlError: 크롤링 실패 시
         """
         try:
             response = self.session.get(post_url, timeout=10)
             response.raise_for_status()
         except requests.RequestException as e:
-            self.logger.error(f"상세 페이지 요청 실패: {e}")
-            return None
+            raise CrawlError(f"상세 페이지 요청 실패: {e}", cause=e)
 
-        return self._parse_detail_page(response.text, post_url, facility_name)
+        result = self._parse_detail_page(response.text, post_url, facility_name)
+        if result is None:
+            raise CrawlError(f"상세 페이지 파싱 실패: {post_url}")
+        return result
 
     def _parse_detail_page(self, html: str, source_url: str, facility_name: str = "") -> Optional[PostDetail]:
         """상세 페이지 HTML 파싱"""

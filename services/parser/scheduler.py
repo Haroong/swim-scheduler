@@ -11,6 +11,7 @@ from datetime import datetime
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+from core.exceptions import ParserBaseError
 from infrastructure.config.logging_config import get_logger
 from infrastructure.container import container
 from main import crawl, parse, save_to_db
@@ -35,7 +36,7 @@ def run_daily_task():
         # 1. 크롤링
         try:
             monthly_notices = crawl(keyword="수영", max_pages=3)
-        except Exception as e:
+        except ParserBaseError as e:
             errors.append(f"크롤링 실패: {e}")
             notifier.notify_error("크롤링", str(e))
             raise
@@ -43,7 +44,7 @@ def run_daily_task():
         # 2. LLM 파싱
         try:
             validated_results = parse(monthly_notices=monthly_notices)
-        except Exception as e:
+        except ParserBaseError as e:
             errors.append(f"파싱 실패: {e}")
             notifier.notify_error("LLM 파싱", str(e))
             raise
@@ -51,7 +52,7 @@ def run_daily_task():
         # 3. DB 저장
         try:
             save_result = save_to_db(validated_results=validated_results)
-        except Exception as e:
+        except ParserBaseError as e:
             errors.append(f"DB 저장 실패: {e}")
             notifier.notify_error("DB 저장", str(e))
 
@@ -59,8 +60,10 @@ def run_daily_task():
         logger.info(f"일일 크롤링 작업 완료: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         logger.info("=" * 80)
 
-    except Exception as e:
+    except ParserBaseError as e:
         logger.error(f"일일 크롤링 작업 중 오류 발생: {e}", exc_info=True)
+    except Exception as e:
+        logger.error(f"일일 크롤링 작업 중 예상치 못한 오류: {e}", exc_info=True)
 
     finally:
         # 성공/실패 무관하게 일일 요약 발송
