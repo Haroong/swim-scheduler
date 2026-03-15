@@ -13,8 +13,10 @@ from app.infrastructure.persistence.closure_repository import SqlAlchemyClosureR
 from app.infrastructure.persistence.notice_repository import SqlAlchemyNoticeRepository
 from app.infrastructure.persistence.fee_repository import SqlAlchemyFeeRepository
 from app.infrastructure.persistence.review_repository import SqlAlchemyReviewRepository
+from app.infrastructure.persistence.user_repository import SqlAlchemyUserRepository
 from app.application.schedule.service import ScheduleService
 from app.application.review.service import ReviewService
+from app.application.auth.service import AuthService
 
 
 # Repository factories
@@ -42,6 +44,10 @@ def get_review_repository(db: Session = Depends(get_db)):
     return SqlAlchemyReviewRepository(db)
 
 
+def get_user_repository(db: Session = Depends(get_db)):
+    return SqlAlchemyUserRepository(db)
+
+
 # Service factories
 def get_schedule_service(
     facility_repo=Depends(get_facility_repository),
@@ -57,3 +63,9 @@ def get_review_service(
     review_repo=Depends(get_review_repository),
 ):
     return ReviewService(review_repo)
+
+
+def get_auth_service(
+    user_repo=Depends(get_user_repository),
+):
+    return AuthService(user_repo)

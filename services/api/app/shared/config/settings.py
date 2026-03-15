@@ -61,6 +61,13 @@ class Settings:
     REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
     REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
 
+    # Google OAuth
+    GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
+
+    # JWT
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "dev-secret-key-change-in-production")
+    JWT_EXPIRATION_HOURS: int = int(os.getenv("JWT_EXPIRATION_HOURS", "168"))  # 7일
+
     # 캐시 TTL 설정 (초 단위)
     CACHE_TTL_FACILITIES: int = 86400   # 24시간 - 시설 목록
     CACHE_TTL_SCHEDULES: int = 86400    # 24시간 - 월별 스케줄
