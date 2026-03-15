@@ -3,6 +3,9 @@ import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react
 import DailySchedule from './pages/DailySchedule'
 import FacilityPage from './pages/FacilityPage'
 import { initGA, trackPageView } from './utils/analytics'
+import { useAuth } from './contexts/AuthContext'
+import LoginButton from './components/auth/LoginButton'
+import UserMenu from './components/auth/UserMenu'
 
 // 페이지뷰 추적
 function PageTracker() {
@@ -48,6 +51,14 @@ function Navigation({ isCompact = false }: { isCompact?: boolean }) {
   );
 }
 
+function AuthSection({ isCompact = false }: { isCompact?: boolean }) {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) return null;
+
+  return user ? <UserMenu isCompact={isCompact} /> : <LoginButton />;
+}
+
 function AppLayout({ children }: { children: React.ReactNode }) {
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -89,7 +100,10 @@ function AppLayout({ children }: { children: React.ReactNode }) {
                   </p>
                 </div>
               </Link>
-              <Navigation isCompact={isScrolled} />
+              <div className="flex items-center gap-2 sm:gap-3">
+                <Navigation isCompact={isScrolled} />
+                <AuthSection isCompact={isScrolled} />
+              </div>
             </div>
           </div>
         </header>

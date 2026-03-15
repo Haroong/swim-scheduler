@@ -1,6 +1,7 @@
 import axios from 'axios';
 import type { Facility, Schedule, CalendarData, DailySchedule } from '../types/schedule';
 import type { Review, ReviewStats, ReviewCreatePayload, ReviewUpdatePayload } from '../types/review';
+import type { User, AuthResponse } from '../types/auth';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 
@@ -9,6 +10,15 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+});
+
+// JWT 토큰 자동 첨부 인터셉터
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('access_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
 });
 
 export const scheduleApi = {
@@ -77,6 +87,18 @@ export const reviewApi = {
     await api.delete(`/api/reviews/${reviewId}`, {
       data: { password },
     });
+  },
+};
+
+export const authApi = {
+  googleLogin: async (credential: string): Promise<AuthResponse> => {
+    const response = await api.post<AuthResponse>('/api/auth/google', { credential });
+    return response.data;
+  },
+
+  getMe: async (): Promise<User> => {
+    const response = await api.get<User>('/api/auth/me');
+    return response.data;
   },
 };
 
