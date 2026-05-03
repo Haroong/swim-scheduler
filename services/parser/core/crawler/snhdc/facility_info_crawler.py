@@ -7,6 +7,8 @@ from typing import Dict, List, Optional
 import logging
 import re
 
+import requests
+
 from core.models.facility import Facility, Organization, get_snhdc_program_url
 from core.crawler.base.facility_crawler import BaseFacilityCrawler
 from core.models.crawler import FacilityInfoResponse, WeekdayScheduleItem, WeekendSchedule

@@ -5,6 +5,8 @@ AJAX API를 통해 게시글 목록을 수집
 from typing import List, Dict, Optional
 import logging
 
+import requests
+
 from core.models.facility import Facility, Organization, SNHDC_BASE_URL
 from core.crawler.base.list_crawler import BaseListCrawler
 from core.models.crawler import PostSummary, PostDetail, Attachment
